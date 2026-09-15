@@ -1,0 +1,54 @@
+# Bloc serveur nginx pour bordereau-app, à ajouter À CÔTÉ de tes configs
+# existantes — ne touche à rien d'autre sur le VPS.
+#
+# 1. Remplace /path/to/bordereau-app par le chemin réel où tu as cloné le
+#    dépôt sur le VPS (ex: /home/ton_user/apps/bordereau-app)
+# 2. Remplace change-me (server_name) par l'IP ou le domaine du VPS
+# 3. Remplace 8000 (dans les 3 proxy_pass) si tu as lancé le backend avec
+#    un autre BACKEND_PORT (voir DEPLOY.md section 3)
+# 4. Copie ce fichier vers /etc/nginx/sites-available/bordereau-app puis :
+#      sudo ln -s /etc/nginx/sites-available/bordereau-app /etc/nginx/sites-enabled/
+#      sudo nginx -t && sudo systemctl reload nginx
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name change-me;  # IP du VPS pour commencer, ou un domaine plus tard
+
+    client_max_body_size 20M;  # upload du papier entête (image/PDF/docx)
+
+    # Fichiers réellement uploadés/générés (papier entête, PDF) — Django ne
+    # les sert PAS en production (DEBUG=False), nginx les sert directement
+    # depuis le volume partagé par les conteneurs backend/celery.
+    location /media/ {
+        alias /path/to/bordereau-app/media/;
+    }
+
+    # API Django (backend Docker, gunicorn en local uniquement)
+    location /api/ {
+        proxy_pass http://127.0.0.1:8000/api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Interface d'admin Django (facultatif, pratique pour le dépannage)
+    location /admin/ {
+        proxy_pass http://127.0.0.1:8000/admin/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+    location /static/ {
+        proxy_pass http://127.0.0.1:8000/static/;
+    }
+
+    # Frontend : fichiers statiques buildés (npm run build -> dist/),
+    # fallback sur index.html pour le routing côté client (React Router).
+    location / {
+        root /path/to/bordereau-app/frontend/dist;
+        try_files $uri /index.html;
+    }
+}

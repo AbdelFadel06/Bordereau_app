@@ -1,0 +1,51 @@
+services:
+  db:
+    image: postgres:16-alpine
+    # env_file (pas environem/substitution ${}) : ce fichier n'est PAS lu
+    # pour la substitution de variables dans ce YAML (ça demanderait un
+    # .env par défaut, qui entrerait en conflit avec celui du dev) — il
+    # est injecté directement dans l'environnement du conteneur, où
+    # l'image postgres lit POSTGRES_DB/POSTGRES_USER/POSTGRES_PASSWORD
+    # automatiquement.
+    env_file:
+      - .env.prod
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    # Pas de port publié : accessible uniquement depuis les autres
+    # conteneurs du même réseau docker-compose, jamais depuis l'extérieur.
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    command: sh -c "python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3"
+    volumes:
+      - ./media:/app/media
+    ports:
+      # Loopback uniquement (127.0.0.1) : le port n'est PAS exposé sur
+      # Internet, seul nginx (sur le VPS, hors Docker) y accède en local.
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
+    env_file:
+      - .env.prod
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
+  celery:
+    build: ./backend
+    command: celery -A config worker -l info
+    volumes:
+      - ./media:/app/media
+    env_file:
+      - .env.prod
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
+volumes:
+  pgdata:

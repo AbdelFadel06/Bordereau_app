@@ -20,6 +20,8 @@ frontend/tsconfig.tsbuildinfo
 
 # Secrets — ne JAMAIS committer les vraies valeurs
 .env
+.env.prod
+.env.*.local
 
 # OS / éditeurs
 .DS_Store

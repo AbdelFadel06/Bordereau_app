@@ -5,7 +5,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config("DJANGO_SECRET_KEY", default="dev-secret-key")
 DEBUG = config("DJANGO_DEBUG", default=True, cast=bool)
-ALLOWED_HOSTS = ["*"]
+# En dev on accepte tout ; en prod, définir DJANGO_ALLOWED_HOSTS dans .env
+# (ex: "example.com,www.example.com" ou l'IP du VPS)
+ALLOWED_HOSTS = config("DJANGO_ALLOWED_HOSTS", default="*", cast=lambda v: [h.strip() for h in v.split(",")])
+# Nécessaire pour le login /admin/ (session + CSRF) dès qu'on est accédé
+# via un domaine/IP précis plutôt que localhost. Ex: "http://203.0.113.5"
+# ou "https://example.com" (avec le schéma, contrairement à ALLOWED_HOSTS).
+CSRF_TRUSTED_ORIGINS = config(
+    "DJANGO_CSRF_TRUSTED_ORIGINS", default="", cast=lambda v: [o.strip() for o in v.split(",") if o.strip()]
+)
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -28,6 +36,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",  # sert les fichiers static (admin/DRF) sans config nginx dédiée
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -82,6 +91,10 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"  # cible de collectstatic, servi par WhiteNoise
+STORAGES = {
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+}
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
