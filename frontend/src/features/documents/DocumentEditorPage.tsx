@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Copy, Download, FileSpreadsheet, Lock, Plus, ScanLine, Save, Trash2 } from "lucide-react";
+import { ArrowRight, Copy, Download, FileSpreadsheet, Plus, ScanLine, Save, Trash2 } from "lucide-react";
 import { api } from "../../api/client";
 import { DOC_TYPES } from "./docTypes";
 
@@ -89,7 +89,6 @@ export function DocumentEditorPage() {
   const isProforma = form.doc_type === "proforma";
   const [documentId, setDocumentId] = useState<number | null>(id ? Number(id) : null);
   const [documentNumber, setDocumentNumber] = useState<string | null>(null);
-  const [documentStatus, setDocumentStatus] = useState<"draft" | "final" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
 
@@ -147,7 +146,6 @@ export function DocumentEditorPage() {
         : [emptyLine()]
     );
     setDocumentNumber(existingDocument.number);
-    setDocumentStatus(existingDocument.status);
   }, [existingDocument]);
 
   const { data: articles } = useQuery<Article[]>({
@@ -210,7 +208,6 @@ export function DocumentEditorPage() {
     onSuccess: (data) => {
       setError(null);
       setDocumentNumber(data.number);
-      setDocumentStatus(data.status);
       queryClient.invalidateQueries({ queryKey: ["documents"] });
       if (!documentId) {
         setDocumentId(data.id);
@@ -221,16 +218,6 @@ export function DocumentEditorPage() {
       const numberError = err?.response?.data?.number?.[0];
       setError(numberError ?? "Échec de l'enregistrement du document. Vérifie les champs.");
     },
-  });
-
-  const finalizeMutation = useMutation({
-    mutationFn: () => api.post(`/documents/${documentId}/finalize/`).then((r) => r.data),
-    onSuccess: (data) => {
-      setPdfError(null);
-      setDocumentStatus(data.status);
-      queryClient.invalidateQueries({ queryKey: ["documents"] });
-    },
-    onError: (err: any) => setPdfError(err?.response?.data?.detail ?? "Échec de la finalisation."),
   });
 
   const duplicateMutation = useMutation({
@@ -306,11 +293,6 @@ export function DocumentEditorPage() {
       <h1>
         {isEditing ? "Modifier le document" : "Nouveau document"}
         {documentNumber && ` — N°${documentNumber}`}
-        {documentStatus === "final" && (
-          <span className="status-badge status-badge--ok" style={{ marginLeft: 10, verticalAlign: "middle" }}>
-            <Lock size={11} /> Finalisé
-          </span>
-        )}
       </h1>
       {selectedCompanyName && !isEditing && <p className="page-intro">Pour {selectedCompanyName}</p>}
 
@@ -558,19 +540,8 @@ export function DocumentEditorPage() {
             disabled={!documentId}
           >
             <Download size={15} />
-            <span className="btn-label">{documentStatus === "final" ? "Télécharger le PDF" : "Générer le PDF"}</span>
+            <span className="btn-label">Générer le PDF</span>
           </button>
-          {documentId && documentStatus === "draft" && (
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => finalizeMutation.mutate()}
-              disabled={finalizeMutation.isPending}
-              title="Fige le PDF actuel comme copie archivée — retéléchargeable à l'identique plus tard, même si tu modifies le document ensuite"
-            >
-              <Lock size={15} /> {finalizeMutation.isPending ? "Finalisation..." : "Finaliser"}
-            </button>
-          )}
           {documentId && (
             <button
               type="button"
@@ -582,12 +553,6 @@ export function DocumentEditorPage() {
             </button>
           )}
         </div>
-        {documentStatus === "final" && (
-          <p className="field-hint">
-            Ce document est finalisé : le PDF archivé lors de la finalisation est toujours celui téléchargé, même si
-            tu modifies le document ensuite (il repassera alors en brouillon).
-          </p>
-        )}
         {pdfError && <p role="alert">{pdfError}</p>}
       </form>
     </div>

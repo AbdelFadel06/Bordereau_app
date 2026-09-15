@@ -24,9 +24,6 @@ class DocumentSerializer(serializers.ModelSerializer):
         model = Document
         fields = ["id", "company", "doc_type", "number", "issued_at", "issued_place",
                   "client", "object_note", "signatory_name", "status", "generated_pdf", "lines", "created_at"]
-        # status : changé uniquement via l'action finalize() (qui archive le
-        # PDF en même temps) — jamais en écriture directe, sinon on pourrait
-        # se retrouver avec status="final" sans PDF archivé correspondant.
         read_only_fields = ["generated_pdf", "status"]
         # Sans ça, DRF génère automatiquement un UniqueTogetherValidator à
         # partir de la contrainte du modèle, qui force `number` à être
@@ -71,10 +68,6 @@ class DocumentSerializer(serializers.ModelSerializer):
             validated_data.pop("number", None)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
-        # Un document finalisé dont on modifie les données n'est plus fidèle
-        # au PDF archivé : repasse en brouillon, à refinaliser si besoin.
-        if instance.status == Document.Status.FINAL:
-            instance.status = Document.Status.DRAFT
         instance.save()
         if lines_data is not None:
             instance.lines.all().delete()

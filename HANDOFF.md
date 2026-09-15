@@ -90,6 +90,11 @@ chaque document (type, client, date, articles).
   pour les trois types, seul le tableau de lignes change)
 
 ### Infra / corrections déjà appliquées (ne pas refaire)
+- **Dépôt git initialisé** (n'existait pas jusqu'ici — tout le travail des
+  sessions précédentes n'était versionné nulle part). `.gitignore` couvre
+  `node_modules/`, `__pycache__/`, `backend/media/`, `.env`. Commit initial
+  sur `main` avec l'état complet du projet, puis workflow par branches
+  pour les nouvelles fonctionnalités (voir "Fait dans ces sessions")
 - `docker-compose.yml` : port PostgreSQL mappé sur l'hôte en `5433:5432`
   (conflit avec un Postgres local existant)
 - Volumes `./backend:/app:z` et `./frontend:/app:z` (suffixe `:z` requis
@@ -475,32 +480,21 @@ chaque document (type, client, date, articles).
     copie société/type/client/objet/lignes, **nouveau numéro auto**, date
     du jour, statut `draft`. Bouton "Dupliquer" dans `DocumentEditorPage.tsx`
     (visible dès qu'un document existe), redirige vers l'édition de la copie
-  - **PDF archivé (copie figée)** : le champ `generated_pdf` existait sur
-    `Document` mais n'était jamais rempli — chaque téléchargement
-    régénérait à la volée depuis les données actuelles. Ajouté
-    **`POST /api/documents/{id}/finalize/`** : rend le PDF, le sauvegarde
-    dans `generated_pdf`, passe `status` à `final`. `Document.status`
-    (existait déjà, jamais utilisé jusqu'ici) devient **read-only côté
-    serializer** — seule l'action `finalize` peut le faire passer à `final`,
-    pour ne jamais se retrouver avec `status=final` sans PDF archivé
-    correspondant
-  - **Comportement de `GET /api/documents/{id}/pdf/`** : si `status=final`
-    et qu'un PDF est archivé → sert ce fichier tel quel (jamais régénéré,
-    même si le document ou le papier entête changent après coup). Sinon →
-    comportement inchangé (régénère à la volée, utile pendant qu'on
-    modifie encore un brouillon)
-  - **Modifier un document finalisé le repasse automatiquement en
-    `draft`** (`DocumentSerializer.update()`) — le PDF archivé ne
-    correspondrait plus aux données, donc le statut ne ment pas ; il faut
-    re-cliquer "Finaliser" pour figer une nouvelle copie
-  - Frontend : badge "Finalisé" à côté du titre, bouton "Finaliser"
-    (visible seulement si `draft`), libellé du bouton PDF qui devient
-    "Télécharger le PDF" (au lieu de "Générer le PDF") une fois finalisé,
-    message explicatif sous les actions quand le document est finalisé
-  - Testé via curl à travers le proxy Vite : create → finalize (statut +
-    PDF archivé confirmés) → patch (repasse bien en `draft`) → duplicate
-    (nouveau numéro, date du jour, lignes copiées). `tsc -b` et
-    `manage.py check` passent
+  - **PDF archivé (copie figée) — implémenté PUIS retiré** : `finalize`
+    (rendait le PDF, le sauvegardait dans `generated_pdf`, passait
+    `status` à `final`) a été construit, testé, puis retiré à la demande
+    de l'utilisateur après discussion sur ce qu'on pouvait simplifier (le
+    seul bénéfice — se prémunir contre un re-téléchargement qui diffère de
+    ce qui a été réellement envoyé — ne justifiait pas le bouton/statut en
+    plus, le fichier déjà téléchargé restant de toute façon ce qu'il est).
+    **`Document.status` reste sur le modèle** (`draft`/`final`, toujours
+    `read_only` côté serializer) **mais rien ne le fait plus jamais passer
+    à `final`** — code mort, laissé tel quel plutôt que migrer pour le
+    retirer. `GET /api/documents/{id}/pdf/` régénère à nouveau
+    systématiquement à la volée, sans exception
+  - Testé via curl à travers le proxy Vite : duplicate (nouveau numéro,
+    date du jour, lignes copiées), endpoint `finalize` confirmé retiré
+    (404). `tsc -b` et `manage.py check` passent
 - **Couleur d'accent changée** (vert vif → vert sombre tendant vers le
   noir, sur demande) : `--color-accent: #1b3a2a`, `--color-accent-dark:
   #0f2419`. Badges "validé"/statut ok retravaillés pour rester en
