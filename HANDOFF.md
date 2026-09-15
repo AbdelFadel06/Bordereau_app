@@ -519,6 +519,40 @@ chaque document (type, client, date, articles).
     complet)
   - `tsc -b` et `manage.py check` passent
 
+## Branche `feature/apercu-document`
+
+Séparée de `main` exprès (fonctionnalité encore en discussion sur le fond,
+pas encore mergée) : **aperçu en direct du document pendant la saisie**,
+avant même d'enregistrer.
+
+- Bouton **"Voir l'aperçu"** (œil, icône + label toujours visible — pas de
+  masquage sur mobile pour ce bouton précisément, demandé explicitement),
+  placé en premier dans la rangée d'actions, avant Enregistrer/Générer le
+  PDF/Dupliquer
+- **Approche choisie : approximation HTML/CSS, pas le vrai rendu
+  WeasyPrint** — recommandé à l'utilisateur après avoir exposé le
+  compromis (rapide/instantané côté client vs fidèle mais nécessite un
+  appel serveur à chaque frappe). Accepté implicitement (pas d'objection),
+  donc pas de nouvel endpoint backend pour cette branche
+- `DocumentPreview.tsx` : reproduit le CONTENU des deux gabarits PDF
+  (`document_pdf.html`/`document_pdf_proforma.html`) — dates, OBJET/CLIENT,
+  tableau de lignes, regroupement taxable/non-taxable et totaux pour la
+  proforma — **mais pas le papier entête** (pas simple à afficher
+  côté client, cf. le problème d'URL media non résolvable depuis le
+  navigateur déjà rencontré plus tôt dans le projet). Un texte au-dessus de
+  l'aperçu précise que c'est une approximation
+- **`proformaPreviewCalc.ts`** : port TypeScript de
+  `documents/services/proforma_calc.py` (même formules : TVA extraite du
+  TTC, AIB à 1% du HT Général, TOTAL TTC Général qui n'inclut pas l'AIB).
+  **Vérifié avec les mêmes valeurs de référence que côté backend
+  (250 000/1 740 000/210 000/390 000 non taxables + 130 000/90 000
+  taxables) → résultats identiques au backend** (2 590 000 / 220 000 /
+  33 559 / 186 441 / 2 776 441 / 27 764 / 2 810 000)
+- Se met à jour en direct sur `form`/`lines` (state en mémoire), donc
+  fonctionne même sur un document jamais encore enregistré
+- `tsc -b` et `manage.py check` passent (aucun changement backend sur
+  cette branche)
+
 ## Ce qui N'EST PAS fait — actions à mener, dans cet ordre de priorité
 
 ### 1. Écran d'ajustement manuel de la zone détectée

@@ -1,23 +1,28 @@
 # Python
 __pycache__/
 *.pyc
-*.pyo
+*.egg-info/
 .venv/
-venv/
 
 # Django
 backend/media/
 backend/staticfiles/
 db.sqlite3
 
-# Node
+# Node / frontend
 frontend/node_modules/
 frontend/dist/
+frontend/dev-dist/
+frontend/tsconfig.tsbuildinfo
 
-# Env / secrets
+# Secrets — ne JAMAIS committer les vraies valeurs
 .env
-.env.local
 
-# OS / editors
+# OS / éditeurs
 .DS_Store
 *.swp
+.vscode/
+.idea/
+
+# Docker
+*.log

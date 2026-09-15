@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Copy, Download, FileSpreadsheet, Plus, ScanLine, Save, Trash2 } from "lucide-react";
+import { ArrowRight, Copy, Download, Eye, EyeOff, FileSpreadsheet, Plus, ScanLine, Save, Trash2 } from "lucide-react";
 import { api } from "../../api/client";
 import { DOC_TYPES } from "./docTypes";
+import { DocumentPreview } from "./DocumentPreview";
 
 interface Article {
   id: number;
@@ -91,6 +92,7 @@ export function DocumentEditorPage() {
   const [documentNumber, setDocumentNumber] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
 
   // Résolution de la société pour un NOUVEAU document : depuis le paramètre
   // d'URL ?company= (vue déjà filtrée), sinon auto-sélection si une seule
@@ -529,6 +531,10 @@ export function DocumentEditorPage() {
         {error && <p role="alert">{error}</p>}
 
         <div className="actions-row">
+          <button type="button" className="btn-secondary" onClick={() => setShowPreview((v) => !v)}>
+            {showPreview ? <EyeOff size={15} /> : <Eye size={15} />}
+            {showPreview ? "Masquer l'aperçu" : "Voir l'aperçu"}
+          </button>
           <button type="submit" disabled={saveMutation.isPending || !form.company} className="btn-icon-collapsible">
             <Save size={15} />
             <span className="btn-label">{saveMutation.isPending ? "Enregistrement..." : "Enregistrer"}</span>
@@ -553,6 +559,19 @@ export function DocumentEditorPage() {
             </button>
           )}
         </div>
+
+        {showPreview && (
+          <DocumentPreview
+            companyName={selectedCompanyName}
+            docType={form.doc_type}
+            number={form.number || documentNumber || ""}
+            client={form.client}
+            issuedAt={form.issued_at}
+            issuedPlace={form.issued_place}
+            objectNote={form.object_note}
+            lines={lines}
+          />
+        )}
         {pdfError && <p role="alert">{pdfError}</p>}
       </form>
     </div>
