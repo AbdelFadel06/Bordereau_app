@@ -3,9 +3,10 @@
 #
 # 1. Remplace /var/www/bordereau-app si tu as cloné ailleurs (repère tes
 #    projets existants : ils vivent dans /var/www/<nom>, pas dans le home)
-# 2. Remplace change-me (server_name) par l'IP ou le domaine du VPS
+# 2. server_name déjà réglé sur bordereau.abdelsaliou.dev (DEPLOY.md
+#    section 2) — adapte seulement si tu changes de nom finalement
 # 3. Remplace 8001 (dans les 3 proxy_pass) si tu utilises un autre port
-#    que 8001 (voir DEPLOY.md section 3 — 8000 est déjà pris par shopm)
+#    que 8001 (voir DEPLOY.md section 4 — 8000 est déjà pris par shopm)
 # 4. Copie ce fichier vers /etc/nginx/sites-available/bordereau-app puis :
 #      sudo ln -s /etc/nginx/sites-available/bordereau-app /etc/nginx/sites-enabled/
 #      sudo nginx -t && sudo systemctl reload nginx
@@ -13,7 +14,7 @@
 server {
     listen 80;
     listen [::]:80;
-    server_name change-me;  # IP du VPS pour commencer, ou un domaine plus tard
+    server_name bordereau.abdelsaliou.dev;
 
     client_max_body_size 20M;  # upload du papier entête (image/PDF/docx)
 

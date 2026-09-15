@@ -62,9 +62,24 @@ cd /var/www/bordereau-app
 (Ou directement `git clone git@github.com:AbdelFadel06/Bordereau_app.git /var/www/bordereau-app` si tu repars de zéro.)
 
 Pour les mises à jour futures, `git pull` dans ce dossier suffira (voir
-section 8).
+section 9) — ou plus du tout une fois le CI/CD en place (section 10).
 
-## 2. Configurer les secrets
+## 2. DNS du sous-domaine
+
+Décidé : **`bordereau.abdelsaliou.dev`**, comme `shopm.abdelsaliou.dev`.
+Dans le panneau DNS qui gère `abdelsaliou.dev`, ajoute un enregistrement
+**A** :
+
+```
+bordereau.abdelsaliou.dev.   A   <IP du VPS>
+```
+
+Ça peut prendre de quelques minutes à quelques heures à se propager —
+lance cette étape maintenant, tu peux continuer les sections suivantes en
+attendant (le certificat HTTPS à la section 8 attendra que ce soit propagé,
+pas le reste).
+
+## 3. Configurer les secrets
 
 ```bash
 cp .env.prod.example .env.prod
@@ -76,21 +91,17 @@ cp .env.prod.example .env.prod
   ```bash
   python3 -c "import secrets; print(secrets.token_urlsafe(50))"
   ```
-- `DJANGO_ALLOWED_HOSTS` — le nom d'hôte utilisé pour y accéder. Tu as déjà
-  un domaine (`abdelsaliou.dev`) avec un sous-domaine par projet
-  (`shopm.abdelsaliou.dev`) — je recommande de faire pareil, ex.
-  `bordereau.abdelsaliou.dev` (à créer comme enregistrement DNS A pointant
-  sur l'IP du VPS, exactement comme pour `shopm`). Sinon, l'IP du VPS
-  fonctionne aussi pour démarrer.
-- `DJANGO_CSRF_TRUSTED_ORIGINS` — même valeur mais avec le schéma, ex:
-  `https://bordereau.abdelsaliou.dev` (ou `http://<IP>` si pas de domaine)
+- `DJANGO_ALLOWED_HOSTS=bordereau.abdelsaliou.dev`
+- `DJANGO_CSRF_TRUSTED_ORIGINS=https://bordereau.abdelsaliou.dev` (avec
+  `https://` dès maintenant même si le certificat arrive à la section 7 —
+  ça évite de devoir y revenir)
 - `POSTGRES_PASSWORD` — un mot de passe fort, propre à cette app (le
   Postgres 14 déjà installé nativement sur le VPS n'est pas concerné, celui
   de bordereau-app tourne dans Docker, isolé, sans port publié)
 
 **Ne commite jamais ce fichier** (déjà dans `.gitignore`).
 
-## 3. Lancer les services Docker (backend, DB, Redis, Celery)
+## 4. Lancer les services Docker (backend, DB, Redis, Celery)
 
 ```bash
 docker compose -f docker-compose.prod.yml up -d --build
@@ -102,7 +113,8 @@ vérifié via l'audit). Si besoin d'un autre port :
 ```bash
 BACKEND_PORT=8002 docker compose -f docker-compose.prod.yml up -d --build
 ```
-(et adapter le même numéro dans le bloc nginx à l'étape 5).
+
+(et adapter le même numéro dans le bloc nginx à l'étape 6).
 
 Ça build l'image backend, lance Postgres/Redis, applique les migrations et
 démarre gunicorn + Celery automatiquement. Vérifie que tout tourne :
@@ -122,7 +134,7 @@ Crée-toi un compte admin Django (pratique pour déboguer via `/admin/`) :
 docker compose -f docker-compose.prod.yml exec backend python manage.py createsuperuser
 ```
 
-## 4. Builder le frontend
+## 5. Builder le frontend
 
 ```bash
 cd frontend
@@ -134,15 +146,14 @@ cd ..
 Ça produit `frontend/dist/` — un dossier de fichiers statiques, rien à
 lancer, nginx va les servir directement.
 
-## 5. Configurer nginx
+## 6. Configurer nginx
 
 ```bash
 cp deploy/nginx-bordereau.conf.example /tmp/bordereau-app.conf
 ```
 
 Édite `/tmp/bordereau-app.conf` :
-- remplace `change-me` (server_name) par `bordereau.abdelsaliou.dev` (ou
-  l'IP du VPS si tu ne fais pas de sous-domaine pour l'instant)
+- remplace `change-me` (server_name) par `bordereau.abdelsaliou.dev`
 - le chemin `/var/www/bordereau-app` est déjà le bon si tu as suivi
   l'étape 1 tel quel
 - si tu as changé `BACKEND_PORT`, adapte le `8001` dans les 3 `proxy_pass`
@@ -160,15 +171,17 @@ sudo systemctl reload nginx
 avec `shopm`/`abdelsaliou.dev`, dis-le-moi — leur config n'a pas besoin de
 changer, juste ce nouveau bloc.
 
-## 6. Vérifier
+## 7. Vérifier
 
-Ouvre `http://bordereau.abdelsaliou.dev/` (ou `http://<IP-du-VPS>/`) dans
-un navigateur — tu dois voir la page d'accueil de l'app. Teste
+Ouvre `http://bordereau.abdelsaliou.dev/` dans un navigateur (si le DNS de
+la section 2 n'a pas encore propagé, `http://<IP-du-VPS>/` fonctionne
+aussi en attendant, tant que `DJANGO_ALLOWED_HOSTS` contient bien l'IP —
+sinon ajoute-la temporairement, séparée par une virgule). Teste
 l'inscription → création de société → upload du papier entête → création
 d'un document → génération du PDF, pour confirmer que le backend, Celery
 et le stockage des fichiers fonctionnent bien ensemble sur le VPS.
 
-## 7. HTTPS
+## 8. HTTPS
 
 Comme pour `shopm.abdelsaliou.dev`, une fois le DNS du sous-domaine propagé :
 
@@ -184,7 +197,7 @@ renouvellement auto. Mets ensuite à jour `.env.prod` :
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-## 8. Mettre à jour après un nouveau `git push`
+## 9. Mettre à jour après un nouveau `git push` (manuellement)
 
 ```bash
 cd /var/www/bordereau-app
@@ -193,7 +206,49 @@ docker compose -f docker-compose.prod.yml up -d --build   # backend/celery
 cd frontend && npm ci && npm run build && cd ..            # frontend
 ```
 
-Pas besoin de toucher à nginx sauf si tu changes des chemins.
+Pas besoin de toucher à nginx sauf si tu changes des chemins. **Une fois la
+section 10 en place, cette étape se fait automatiquement à chaque push.**
+
+## 10. CI/CD — déploiement automatique à chaque push
+
+Le workflow `.github/workflows/deploy.yml` existe déjà dans le repo : à
+chaque push sur `main`, GitHub Actions se connecte en SSH au VPS et relance
+exactement la séquence de la section 9. Il ne manque que la connexion —
+à faire une seule fois.
+
+**a. Génère une clé SSH dédiée, sur le VPS** (différente de celle qui sert
+à cloner depuis GitHub — celle-ci sert dans l'autre sens : GitHub → VPS) :
+
+```bash
+ssh-keygen -t ed25519 -C "github-actions-deploy" -f ~/.ssh/gh_actions_deploy -N ""
+cat ~/.ssh/gh_actions_deploy.pub >> ~/.ssh/authorized_keys
+cat ~/.ssh/gh_actions_deploy
+```
+
+Copie **toute** la sortie de cette dernière commande (de `-----BEGIN
+OPENSSH PRIVATE KEY-----` à `-----END OPENSSH PRIVATE KEY-----` inclus).
+
+**b. Ajoute 3 secrets sur GitHub** — sur la page du repo :
+**Settings → Secrets and variables → Actions → New repository secret** :
+
+| Nom | Valeur |
+|---|---|
+| `VPS_HOST` | l'IP du VPS |
+| `VPS_USER` | `fadel` |
+| `VPS_SSH_KEY` | la clé privée copiée à l'étape a (le texte complet) |
+
+**c. Teste** : va dans l'onglet **Actions** du repo sur GitHub, ouvre le
+workflow "Déploiement VPS", clique **Run workflow** (bouton manuel, grâce à
+`workflow_dispatch` dans le fichier) pour le tester sans attendre un vrai
+push. Regarde les logs — si tout est vert, chaque `git push` sur `main`
+redéploiera désormais automatiquement.
+
+**À savoir** : cette clé SSH a les mêmes droits que ton utilisateur `fadel`
+sur le VPS (pas seulement sur `bordereau-app`) — normal pour une clé de
+déploiement personnelle sur ton propre serveur, mais si tu veux la limiter
+strictement à ce projet plus tard, on peut restreindre la commande
+autorisée dans `~/.ssh/authorized_keys` (préfixe `command="..."`), pas fait
+par défaut ici pour rester simple.
 
 ## Points d'attention
 

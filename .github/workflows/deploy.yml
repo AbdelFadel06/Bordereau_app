@@ -1,0 +1,40 @@
+name: Déploiement VPS
+
+# À chaque push sur main : connexion SSH au VPS, git pull, rebuild des
+# conteneurs backend/celery, rebuild du frontend. Voir DEPLOY.md section
+# "CI/CD" pour la mise en place des secrets nécessaires (une seule fois).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {} # permet aussi de relancer un déploiement à la main depuis l'onglet Actions
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Déployer sur le VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            cd /var/www/bordereau-app
+            git pull origin main
+            docker compose -f docker-compose.prod.yml up -d --build
+            cd frontend
+            npm ci
+            npm run build
+            cd ..
+            echo "Déploiement terminé : $(date)"
+
+      - name: Vérifie que le site répond
+        # Ne fait pas échouer le workflow si le domaine/HTTPS n'est pas
+        # encore en place — juste informatif tant que ce n'est pas fait.
+        continue-on-error: true
+        run: |
+          sleep 5
+          curl -fsSL --max-time 10 http://bordereau.abdelsaliou.dev/ > /dev/null \
+            && echo "Le site répond." \
+            || echo "Le site ne répond pas encore (normal si le DNS/nginx n'est pas encore configuré)."
