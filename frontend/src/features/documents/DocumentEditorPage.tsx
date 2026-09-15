@@ -5,6 +5,7 @@ import { ArrowRight, Copy, Download, Eye, EyeOff, FileSpreadsheet, Plus, ScanLin
 import { api } from "../../api/client";
 import { DOC_TYPES } from "./docTypes";
 import { DocumentPreview } from "./DocumentPreview";
+import { parseCsvToLines } from "./csvImport";
 
 interface Article {
   id: number;
@@ -93,6 +94,8 @@ export function DocumentEditorPage() {
   const [error, setError] = useState<string | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [importMessage, setImportMessage] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
 
   // Résolution de la société pour un NOUVEAU document : depuis le paramètre
   // d'URL ?company= (vue déjà filtrée), sinon auto-sélection si une seule
@@ -186,6 +189,40 @@ export function DocumentEditorPage() {
 
   function removeLine(index: number) {
     setLines((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev));
+  }
+
+  function handleCsvFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // permet de réimporter le même fichier après correction
+    if (!file) return;
+    setImportError(null);
+    setImportMessage(null);
+
+    const reader = new FileReader();
+    reader.onerror = () => setImportError("Échec de la lecture du fichier.");
+    reader.onload = () => {
+      try {
+        const { lines: imported, skipped } = parseCsvToLines(String(reader.result));
+        if (imported.length === 0) {
+          setImportError("Aucune ligne valide trouvée dans le fichier (désignation manquante partout).");
+          return;
+        }
+        setLines((prev) => {
+          const isPristine = prev.length === 1 && !prev[0].designation;
+          return isPristine ? imported : [...prev, ...imported];
+        });
+        const plural = imported.length > 1 ? "s" : "";
+        let message = `${imported.length} ligne${plural} importée${plural}.`;
+        if (skipped > 0) {
+          const skipPlural = skipped > 1 ? "s" : "";
+          message += ` ${skipped} ligne${skipPlural} ignorée${skipPlural} (désignation vide).`;
+        }
+        setImportMessage(message);
+      } catch (err: any) {
+        setImportError(err?.message ?? "Échec de l'import du fichier.");
+      }
+    };
+    reader.readAsText(file);
   }
 
   const saveMutation = useMutation({
@@ -511,10 +548,12 @@ export function DocumentEditorPage() {
           <div className="import-option">
             <FileSpreadsheet size={18} className="import-option__icon" />
             <div>
-              <div className="import-option__title">
-                Importer un fichier <span className="import-option__badge">Bientôt</span>
-              </div>
-              <p>Charge un CSV ou Excel pour remplir les lignes automatiquement.</p>
+              <div className="import-option__title">Importer un fichier CSV</div>
+              <p>
+                Colonnes reconnues : désignation, unité, référence, quantité, observation
+                {isProforma ? ", PU, taxable." : "."}
+              </p>
+              <input type="file" accept=".csv,text/csv" onChange={handleCsvFileChange} style={{ marginTop: 8 }} />
             </div>
           </div>
           <div className="import-option">
@@ -527,6 +566,8 @@ export function DocumentEditorPage() {
             </div>
           </div>
         </div>
+        {importMessage && <p className="field-hint">{importMessage}</p>}
+        {importError && <p role="alert">{importError}</p>}
 
         {error && <p role="alert">{error}</p>}
 

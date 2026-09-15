@@ -519,11 +519,9 @@ chaque document (type, client, date, articles).
     complet)
   - `tsc -b` et `manage.py check` passent
 
-## Branche `feature/apercu-document`
+## Aperçu en direct (mergé sur `main` depuis `feature/apercu-document`)
 
-Séparée de `main` exprès (fonctionnalité encore en discussion sur le fond,
-pas encore mergée) : **aperçu en direct du document pendant la saisie**,
-avant même d'enregistrer.
+**Aperçu en direct du document pendant la saisie**, avant même d'enregistrer.
 
 - Bouton **"Voir l'aperçu"** (œil, icône + label toujours visible — pas de
   masquage sur mobile pour ce bouton précisément, demandé explicitement),
@@ -532,15 +530,13 @@ avant même d'enregistrer.
 - **Approche choisie : approximation HTML/CSS, pas le vrai rendu
   WeasyPrint** — recommandé à l'utilisateur après avoir exposé le
   compromis (rapide/instantané côté client vs fidèle mais nécessite un
-  appel serveur à chaque frappe). Accepté implicitement (pas d'objection),
-  donc pas de nouvel endpoint backend pour cette branche
+  appel serveur à chaque frappe). Accepté, donc pas de nouvel endpoint
+  backend pour cette fonctionnalité
 - `DocumentPreview.tsx` : reproduit le CONTENU des deux gabarits PDF
   (`document_pdf.html`/`document_pdf_proforma.html`) — dates, OBJET/CLIENT,
   tableau de lignes, regroupement taxable/non-taxable et totaux pour la
-  proforma — **mais pas le papier entête** (pas simple à afficher
-  côté client, cf. le problème d'URL media non résolvable depuis le
-  navigateur déjà rencontré plus tôt dans le projet). Un texte au-dessus de
-  l'aperçu précise que c'est une approximation
+  proforma — **mais pas le papier entête**. Un texte au-dessus de l'aperçu
+  précise que c'est une approximation
 - **`proformaPreviewCalc.ts`** : port TypeScript de
   `documents/services/proforma_calc.py` (même formules : TVA extraite du
   TTC, AIB à 1% du HT Général, TOTAL TTC Général qui n'inclut pas l'AIB).
@@ -550,8 +546,44 @@ avant même d'enregistrer.
   33 559 / 186 441 / 2 776 441 / 27 764 / 2 810 000)
 - Se met à jour en direct sur `form`/`lines` (state en mémoire), donc
   fonctionne même sur un document jamais encore enregistré
-- `tsc -b` et `manage.py check` passent (aucun changement backend sur
-  cette branche)
+- **Ajouter le vrai papier entête à l'aperçu : possible, décliné pour
+  l'instant.** Analysé après coup : le blocage n'est pas fondamental —
+  l'URL renvoyée par l'API pour `background_image` utilise le nom d'hôte
+  interne Docker (`backend:8000`, ne résout pas depuis le navigateur), mais
+  ça se contourne en proxifiant `/media` via Vite comme `/api` l'est déjà,
+  et en utilisant le chemin relatif de l'image plutôt que l'URL absolue.
+  L'utilisateur a choisi de laisser l'aperçu tel quel (contenu seulement)
+  plutôt que d'investir là-dessus maintenant — pas un dead-end technique si
+  ça redevient utile plus tard, juste pas prioritaire
+
+## Branche `feature/import-articles`
+
+Créée depuis `main` (déjà à jour avec l'aperçu, mergé directement par
+l'utilisateur) pour les imports CSV/Excel et photo/OCR — points 2 et 3 du
+backlog ci-dessous. **CSV fait, OCR laissé en "Bientôt"** (chantier séparé :
+choix d'un moteur OCR, traitement d'image — pas commencé, pas demandé de
+détail précis sur l'approche voulue pour l'instant).
+
+- **`csvImport.ts`** : parseur CSV maison (pas de dépendance ajoutée) —
+  gère les champs entre guillemets avec virgules/guillemets échappés, BOM
+  UTF-8 (export Excel), `\r\n`/`\n`. En-têtes reconnus de façon tolérante
+  (accents/casse/variantes : DESIGNATION, UNITE/UNITÉ, REF/RÉFÉRENCE,
+  QUANTITE/QTE, OBSERVATION, PU/PRIX, TAXABLE) plutôt qu'un format exact
+  imposé
+- Carte "Importer un fichier CSV" dans `DocumentEditorPage.tsx` (remplace
+  le placeholder "Bientôt" précédent) : `<input type="file">` simple,
+  lecture via `FileReader`, lignes importées **fusionnées** dans le
+  tableau existant (remplace la ligne vide par défaut si c'est tout ce
+  qu'il y a, sinon ajoute à la suite) — jamais écrasé silencieusement.
+  Message de résultat ("X lignes importées, Y ignorées") ou erreur claire
+  si la colonne désignation est introuvable
+- **Vérifié avec le fichier exemple exact fourni par l'utilisateur**
+  (RIZ/HARICOT/MAIS/GARI/COQUILLETTE/SPAGHETTI, colonnes N°/DESIGNATION/
+  UNITE/REF/QUANTITE/Observation) — exécuté directement via Node
+  (`--experimental-strip-types`, pas une réimplémentation à part) : 6
+  lignes importées, 0 ignorée, tous les champs correctement mappés
+- `tsc -b` et `manage.py check` passent (aucun changement backend — le
+  parsing est entièrement côté client)
 
 ## Ce qui N'EST PAS fait — actions à mener, dans cet ordre de priorité
 
@@ -565,9 +597,13 @@ n'affiche l'aperçu avec la ligne ajustable. À faire :
 - Utile aussi pour `content_bottom` si un pied de page est détecté
 
 ### 2. Import CSV/Excel des articles
-Pas commencé. Prévoir un endpoint dans `ingestion` qui accepte un fichier
-CSV/XLSX et retourne une liste de lignes à valider avant import dans un
-document (mapping colonnes → champs `DocumentLine`)
+**CSV fait** (`feature/import-articles`, pas encore mergé — voir plus haut) :
+parsing entièrement côté client, pas d'endpoint backend. **Reste : le
+`.xlsx` binaire natif** (pas juste un CSV renommé) n'est pas géré — Excel
+"Enregistrer sous → CSV" fonctionne déjà, mais un vrai classeur `.xlsx`
+demanderait une librairie de parsing (ex: SheetJS/`xlsx`) côté client ou
+un endpoint dédié côté serveur. Pas fait, pas demandé explicitement pour
+l'instant
 
 ### 3. Import OCR (image/PDF de liste d'articles)
 Pas commencé — dernière priorité. Tesseract.js ou service cloud, avec
