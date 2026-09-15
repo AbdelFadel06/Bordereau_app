@@ -635,6 +635,76 @@ photos mais coûte par image et demande de choisir un fournisseur).
   par défaut de la librairie, pas configuré autrement)
 - `tsc -b` et `manage.py check` passent (aucun changement backend)
 
+## Déploiement en production (préparé, pas encore fait sur le vrai VPS)
+
+`main` mergé (fast-forward) avec `feature/apercu-document` puis
+`feature/import-articles`, poussé sur `origin/main`
+(`git@github.com:AbdelFadel06/Bordereau_app.git` — un remote GitHub que
+l'utilisateur avait déjà configuré lui-même, découvert en faisant le merge).
+
+Contexte : VPS existant avec 2-3 autres projets déjà en prod via nginx en
+direct, **jamais utilisé Docker dessus**. L'utilisateur veut préparer les
+fichiers/instructions et exécuter lui-même (pas d'accès SSH donné).
+Décision : garder Docker pour CETTE app (comme en dev — évite de
+réinstaller à la main toutes les dépendances système de WeasyPrint/
+LibreOffice/poppler sur le VPS), mais le backend n'écoute qu'en local
+(`127.0.0.1`) et c'est le nginx déjà en place sur le VPS qui reverse-proxy
+dessus — n'affecte donc pas ses autres sites. Le frontend n'est pas
+dockerisé en prod : buildé en statique (`npm run build`) et servi
+directement par ce même nginx.
+
+- **`docker-compose.prod.yml`** : `backend` (gunicorn, migrate +
+  collectstatic au démarrage), `celery`, `db`, `redis`. Aucun port publié
+  sauf `127.0.0.1:${BACKEND_PORT:-8000}:8000` pour le backend — `db`/`redis`
+  ne sont accessibles que depuis le réseau docker-compose interne, jamais
+  depuis l'hôte ni Internet (contrairement au dev où `db` publie
+  `5433:5432` pour le débogage local)
+  - **Piège rencontré en validant** : `db` utilisait d'abord
+    `environment: { POSTGRES_DB: ${POSTGRES_DB}, ... }`, en supposant que
+    `env_file: .env.prod` alimenterait cette substitution `${}` — faux.
+    `env_file:` injecte des variables dans le conteneur au runtime, mais
+    la substitution `${VAR}` **dans le YAML lui-même** ne lit que le vrai
+    environnement shell ou un fichier nommé exactement `.env` (qu'on évite
+    exprès, pour ne pas entrer en conflit avec le `.env` de dev si les
+    deux fichiers compose sont lancés depuis le même dossier). Corrigé en
+    donnant `env_file: .env.prod` à `db` aussi — l'image postgres lit
+    POSTGRES_DB/USER/PASSWORD directement depuis son environnement, sans
+    passer par `${}`. Repéré uniquement parce que `docker compose config`
+    a été exécuté pour valider (jamais lancé "en aveugle")
+  - Même piège plus subtil sur `BACKEND_PORT` dans le mapping `ports:` —
+    celui-là a vraiment besoin d'une substitution `${}`, donc **il ne peut
+    pas venir de `.env.prod`** (retiré du template, qui induisait en
+    erreur) : pour changer le port, préfixer la commande
+    (`BACKEND_PORT=8001 docker compose -f docker-compose.prod.yml up -d`),
+    documenté dans `DEPLOY.md`
+- **`backend/config/settings.py`** : `ALLOWED_HOSTS` et
+  `CSRF_TRUSTED_ORIGINS` pilotables par env (`DJANGO_ALLOWED_HOSTS`,
+  `DJANGO_CSRF_TRUSTED_ORIGINS`) au lieu de `["*"]` en dur. **WhiteNoise**
+  ajouté (middleware + `STATIC_ROOT` + `STORAGES["staticfiles"]`) pour
+  servir les assets admin/DRF directement depuis gunicorn — évite un
+  `location /static/` séparé côté nginx avec un chemin vers
+  `collectstatic` à synchroniser
+- **`requirements.txt`** : `gunicorn`, `whitenoise` — images `backend`/
+  `celery` reconstruites en dev pour vérifier que ça n'a rien cassé
+- **`.env.prod.example`**, **`deploy/nginx-bordereau.conf.example`** :
+  templates à copier/remplir sur le VPS (secrets réels, chemins réels,
+  IP/domaine réel) — jamais de vraies valeurs commitées
+- **`DEPLOY.md`** : guide pas-à-pas complet (install Docker si besoin,
+  secrets, lancement, build frontend, config nginx — bien répété de ne
+  toucher à rien des sites existants —, HTTPS plus tard via certbot une
+  fois un domaine dispo, procédure de mise à jour après un `git push`)
+- **Vérifié sans accès au VPS** (aucun accès donné, tout se fait en local) :
+  `manage.py check --deploy` propre avec `DEBUG=False` et de vraies valeurs
+  `ALLOWED_HOSTS`/`CSRF_TRUSTED_ORIGINS` simulées (aucune erreur, juste les
+  avertissements HTTPS attendus tant qu'il n'y a pas de domaine/certbot),
+  `docker compose -f docker-compose.prod.yml config` valide sans warning,
+  `collectstatic` fonctionne. **Le VPS réel n'a pas été touché** — c'est à
+  l'utilisateur de suivre `DEPLOY.md`
+- Poussé sur GitHub (`git push origin main`) sans demander confirmation
+  explicite à chaque fois — le remote avait déjà été configuré par
+  l'utilisateur lui-même et "on envoie ça sur main" impliquait clairement
+  vouloir le retrouver sur GitHub avant de déployer
+
 ## Ce qui N'EST PAS fait — actions à mener, dans cet ordre de priorité
 
 ### 1. Écran d'ajustement manuel de la zone détectée
