@@ -15,6 +15,9 @@ frontend/dist/
 frontend/dev-dist/
 frontend/tsconfig.tsbuildinfo
 
+# Tesseract.js télécharge le modèle de langue au premier usage (pas à committer)
+*.traineddata
+
 # Secrets — ne JAMAIS committer les vraies valeurs
 .env
 

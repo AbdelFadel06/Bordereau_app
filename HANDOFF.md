@@ -560,9 +560,9 @@ chaque document (type, client, date, articles).
 
 Créée depuis `main` (déjà à jour avec l'aperçu, mergé directement par
 l'utilisateur) pour les imports CSV/Excel et photo/OCR — points 2 et 3 du
-backlog ci-dessous. **CSV fait, OCR laissé en "Bientôt"** (chantier séparé :
-choix d'un moteur OCR, traitement d'image — pas commencé, pas demandé de
-détail précis sur l'approche voulue pour l'instant).
+backlog ci-dessous. **CSV fait, puis OCR fait aussi** après clarification
+avec l'utilisateur (cible = captures d'écran/listes numériques nettes,
+moteur Tesseract.js — voir plus bas).
 
 - **`csvImport.ts`** : parseur CSV maison (pas de dépendance ajoutée) —
   gère les champs entre guillemets avec virgules/guillemets échappés, BOM
@@ -585,6 +585,56 @@ détail précis sur l'approche voulue pour l'instant).
 - `tsc -b` et `manage.py check` passent (aucun changement backend — le
   parsing est entièrement côté client)
 
+### Import OCR (photo/scan)
+
+Décisions prises avec l'utilisateur avant de commencer : entrée = captures
+d'écran/listes numériques propres (pas des photos de papier physique),
+moteur = Tesseract.js (gratuit, pas de clé API à gérer — l'alternative
+cloud avec détection de tableau native serait plus fiable sur de vraies
+photos mais coûte par image et demande de choisir un fournisseur).
+
+- **Piège découvert en testant, qui a fait échouer la première
+  approche** : l'idée initiale était de convertir les espaces multiples
+  entre colonnes en virgules pour réutiliser `parseCsvToLines` tel quel.
+  **Ça ne marche pas** — vérifié empiriquement avec le vrai moteur
+  Tesseract.js (pas supposé) : `data.text` normalise tous les espaces
+  multiples en un seul, donc impossible de distinguer un espace
+  inter-colonnes d'un espace entre deux mots d'une même cellule sur le
+  texte brut
+- **Solution : reconstruction des colonnes à partir des positions (bbox)
+  des mots**, pas du texte à plat. `ocrImport.ts::reconstructTable` calcule
+  l'écart horizontal typique entre deux mots d'une même ligne (médiane),
+  puis coupe une nouvelle colonne quand l'écart dépasse ~3× cette médiane.
+  Le tableau de cellules obtenu est ensuite mappé aux champs
+  `DocumentLine` par en-tête (même logique de reconnaissance tolérante que
+  `csvImport.ts`, factorisation partielle)
+- **Vérifié avec le vrai moteur Tesseract.js** (pas une simulation) sur une
+  image de test reproduisant l'exemple fourni par l'utilisateur (mêmes
+  6 articles, mêmes colonnes) : `npm install` dans le conteneur frontend,
+  puis exécution directe de `tesseract.js` via Node à l'intérieur du
+  conteneur (le binding `--experimental-strip-types` de Node 22+ n'est pas
+  disponible sur le Node 20 du conteneur, donc le test reproduit la
+  logique en JS plutôt que d'importer le `.ts` directement — la logique
+  testée est identique à ce qui est livré). Résultat : reconstruction des
+  colonnes et mapping des champs **100% corrects sur les 6 lignes**, y
+  compris la ligne d'en-tête
+- **Étape de correction manuelle obligatoire avant import** (comme prévu
+  dans le backlog) : les lignes extraites s'affichent dans un panneau de
+  révision éditable (désignation/unité/référence/quantité, pas fusionnées
+  directement dans le document) avec "Confirmer l'import" / "Annuler" —
+  jamais d'import silencieux depuis une photo, contrairement au CSV
+  (des données structurées, donc plus fiables par nature)
+- Barre de progression pendant l'analyse (`ocrProgress`, callback
+  `logger` de Tesseract.js) — l'OCR prend plusieurs secondes même sur une
+  image nette
+- `capture="environment"` sur l'`<input type="file">` : ouvre l'appareil
+  photo par défaut sur mobile tout en gardant la possibilité de choisir un
+  fichier existant (galerie/capture d'écran)
+- Nouvelle dépendance npm **`tesseract.js`** (~14 paquets) — télécharge le
+  modèle de langue français au premier usage depuis un CDN (comportement
+  par défaut de la librairie, pas configuré autrement)
+- `tsc -b` et `manage.py check` passent (aucun changement backend)
+
 ## Ce qui N'EST PAS fait — actions à mener, dans cet ordre de priorité
 
 ### 1. Écran d'ajustement manuel de la zone détectée
@@ -605,10 +655,12 @@ demanderait une librairie de parsing (ex: SheetJS/`xlsx`) côté client ou
 un endpoint dédié côté serveur. Pas fait, pas demandé explicitement pour
 l'instant
 
-### 3. Import OCR (image/PDF de liste d'articles)
-Pas commencé — dernière priorité. Tesseract.js ou service cloud, avec
-étape de correction manuelle obligatoire après extraction (voir discussion
-précédente sur la fiabilité de l'OCR)
+### 3. Import OCR — fait (`feature/import-articles`, pas encore mergé)
+Décision utilisateur : cible = captures d'écran/listes numériques nettes
+(pas des photos de papier physique), moteur Tesseract.js (gratuit, pas de
+clé API). Voir la section dédiée plus bas pour le détail technique et la
+vérification. Reste hors scope : vraies photos de papier physique/
+manuscrit (annoncé comme moins fiable, pas testé, pas demandé)
 
 ### 4. Tests sur le 2e papier entête (Adje) — pied de page signature
 La détection de `content_bottom` (pour éviter d'écrire sur un pied de page

@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Copy, Download, Eye, EyeOff, FileSpreadsheet, Plus, ScanLine, Save, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowRight, Check, Copy, Download, Eye, EyeOff, FileSpreadsheet, Plus, ScanLine, Save, Trash2, X } from "lucide-react";
 import { api } from "../../api/client";
 import { DOC_TYPES } from "./docTypes";
 import { DocumentPreview } from "./DocumentPreview";
 import { parseCsvToLines } from "./csvImport";
+import { recognizeArticleList } from "./ocrImport";
 
 interface Article {
   id: number;
@@ -96,6 +97,9 @@ export function DocumentEditorPage() {
   const [showPreview, setShowPreview] = useState(false);
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const [ocrProgress, setOcrProgress] = useState<number | null>(null);
+  const [ocrError, setOcrError] = useState<string | null>(null);
+  const [ocrReview, setOcrReview] = useState<LineForm[] | null>(null);
 
   // Résolution de la société pour un NOUVEAU document : depuis le paramètre
   // d'URL ?company= (vue déjà filtrée), sinon auto-sélection si une seule
@@ -223,6 +227,45 @@ export function DocumentEditorPage() {
       }
     };
     reader.readAsText(file);
+  }
+
+  async function handleOcrFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setOcrError(null);
+    setOcrReview(null);
+    setOcrProgress(0);
+    try {
+      const { lines: recognized } = await recognizeArticleList(file, (ratio) => setOcrProgress(ratio));
+      if (recognized.length === 0) {
+        setOcrError("Aucun texte reconnu sur cette image. Réessaie avec une image plus nette.");
+        return;
+      }
+      setOcrReview(recognized);
+    } catch (err: any) {
+      setOcrError(err?.message ?? "Échec de l'analyse de l'image.");
+    } finally {
+      setOcrProgress(null);
+    }
+  }
+
+  function updateOcrReviewLine(index: number, patch: Partial<LineForm>) {
+    setOcrReview((prev) => prev && prev.map((line, i) => (i === index ? { ...line, ...patch } : line)));
+  }
+
+  function removeOcrReviewLine(index: number) {
+    setOcrReview((prev) => prev && prev.filter((_, i) => i !== index));
+  }
+
+  function confirmOcrImport() {
+    if (!ocrReview || ocrReview.length === 0) return;
+    setLines((prev) => {
+      const isPristine = prev.length === 1 && !prev[0].designation;
+      return isPristine ? ocrReview : [...prev, ...ocrReview];
+    });
+    setImportMessage(`${ocrReview.length} ligne${ocrReview.length > 1 ? "s" : ""} importée${ocrReview.length > 1 ? "s" : ""} depuis la photo.`);
+    setOcrReview(null);
   }
 
   const saveMutation = useMutation({
@@ -559,15 +602,104 @@ export function DocumentEditorPage() {
           <div className="import-option">
             <ScanLine size={18} className="import-option__icon" />
             <div>
-              <div className="import-option__title">
-                Importer par photo/scan <span className="import-option__badge">Bientôt</span>
-              </div>
-              <p>Prends en photo une liste d'articles et laisse l'OCR la retranscrire.</p>
+              <div className="import-option__title">Importer par photo/scan</div>
+              <p>
+                Capture d'écran ou liste numérique nette (pas encore fiable sur une photo de papier) — les lignes
+                extraites sont toujours à vérifier avant import.
+              </p>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleOcrFileChange}
+                disabled={ocrProgress !== null}
+                style={{ marginTop: 8 }}
+              />
+              {ocrProgress !== null && (
+                <p className="field-hint">Analyse de l'image... {Math.round(ocrProgress * 100)}%</p>
+              )}
             </div>
           </div>
         </div>
         {importMessage && <p className="field-hint">{importMessage}</p>}
         {importError && <p role="alert">{importError}</p>}
+        {ocrError && <p role="alert">{ocrError}</p>}
+
+        {ocrReview && (
+          <div className="card" style={{ marginBottom: 20 }}>
+            <p className="section-title" style={{ marginTop: 0 }}>
+              <AlertTriangle size={13} style={{ verticalAlign: "-2px", marginRight: 6 }} />
+              Vérifie les lignes extraites avant d'importer
+            </p>
+            <div className="lines-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Désignation</th>
+                    <th>Unité</th>
+                    <th>Référence</th>
+                    <th>Quantité</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ocrReview.map((line, index) => (
+                    <tr key={index}>
+                      <td>
+                        <input
+                          type="text"
+                          value={line.designation}
+                          onChange={(e) => updateOcrReviewLine(index, { designation: e.target.value })}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          value={line.unit}
+                          onChange={(e) => updateOcrReviewLine(index, { unit: e.target.value })}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          value={line.reference}
+                          onChange={(e) => updateOcrReviewLine(index, { reference: e.target.value })}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          value={line.quantity}
+                          onChange={(e) => updateOcrReviewLine(index, { quantity: e.target.value })}
+                        />
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className="btn-danger-ghost"
+                          onClick={() => removeOcrReviewLine(index)}
+                          aria-label="Retirer cette ligne"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="actions-row" style={{ marginTop: 12 }}>
+              <button type="button" onClick={confirmOcrImport} disabled={ocrReview.length === 0}>
+                <Check size={15} /> Confirmer l'import ({ocrReview.length})
+              </button>
+              <button type="button" className="btn-secondary" onClick={() => setOcrReview(null)}>
+                <X size={15} /> Annuler
+              </button>
+            </div>
+          </div>
+        )}
 
         {error && <p role="alert">{error}</p>}
 
