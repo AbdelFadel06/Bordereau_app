@@ -1,11 +1,11 @@
 # Bloc serveur nginx pour bordereau-app, à ajouter À CÔTÉ de tes configs
 # existantes — ne touche à rien d'autre sur le VPS.
 #
-# 1. Remplace /path/to/bordereau-app par le chemin réel où tu as cloné le
-#    dépôt sur le VPS (ex: /home/ton_user/apps/bordereau-app)
+# 1. Remplace /var/www/bordereau-app si tu as cloné ailleurs (repère tes
+#    projets existants : ils vivent dans /var/www/<nom>, pas dans le home)
 # 2. Remplace change-me (server_name) par l'IP ou le domaine du VPS
-# 3. Remplace 8000 (dans les 3 proxy_pass) si tu as lancé le backend avec
-#    un autre BACKEND_PORT (voir DEPLOY.md section 3)
+# 3. Remplace 8001 (dans les 3 proxy_pass) si tu utilises un autre port
+#    que 8001 (voir DEPLOY.md section 3 — 8000 est déjà pris par shopm)
 # 4. Copie ce fichier vers /etc/nginx/sites-available/bordereau-app puis :
 #      sudo ln -s /etc/nginx/sites-available/bordereau-app /etc/nginx/sites-enabled/
 #      sudo nginx -t && sudo systemctl reload nginx
@@ -21,12 +21,12 @@ server {
     # les sert PAS en production (DEBUG=False), nginx les sert directement
     # depuis le volume partagé par les conteneurs backend/celery.
     location /media/ {
-        alias /path/to/bordereau-app/media/;
+        alias /var/www/bordereau-app/media/;
     }
 
     # API Django (backend Docker, gunicorn en local uniquement)
     location /api/ {
-        proxy_pass http://127.0.0.1:8000/api/;
+        proxy_pass http://127.0.0.1:8001/api/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -35,20 +35,20 @@ server {
 
     # Interface d'admin Django (facultatif, pratique pour le dépannage)
     location /admin/ {
-        proxy_pass http://127.0.0.1:8000/admin/;
+        proxy_pass http://127.0.0.1:8001/admin/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
     location /static/ {
-        proxy_pass http://127.0.0.1:8000/static/;
+        proxy_pass http://127.0.0.1:8001/static/;
     }
 
     # Frontend : fichiers statiques buildés (npm run build -> dist/),
     # fallback sur index.html pour le routing côté client (React Router).
     location / {
-        root /path/to/bordereau-app/frontend/dist;
+        root /var/www/bordereau-app/frontend/dist;
         try_files $uri /index.html;
     }
 }
