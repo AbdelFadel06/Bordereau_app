@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  @page { size: A4; margin: 0; }
+  body {
+    margin: 0;
+    background-image: url("{{ background_url }}");
+    background-size: 210mm 297mm;
+    background-repeat: no-repeat;
+    font-family: sans-serif;
+    font-size: 11pt;
+  }
+  .content {
+    position: absolute;
+    top: {{ content_top }}%;
+    left: 15mm;
+    right: 15mm;
+  }
+  {% if footer_mask_top %}
+  .footer-mask {
+    position: absolute;
+    top: {{ footer_mask_top }}%;
+    left: -5mm;
+    right: -5mm;
+    bottom: -5mm;
+    background: white;
+  }
+  {% endif %}
+  .meta { text-align: right; margin-bottom: 5mm; }
+  h1 { font-size: 14pt; text-align: center; text-decoration: underline; margin-bottom: 5mm; }
+  .client { margin: 0 0 2mm; }
+  .objet { margin: 0 0 4mm; }
+  .objet em { font-style: italic; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border: 1px solid #333; padding: 2px 6px; text-align: left; font-size: 9pt; }
+  th { background: {{ header_color }}; color: {{ header_text_color }}; }
+  th.num, td.num { text-align: right; white-space: nowrap; }
+  .group-header td { background: {{ group_header_color }}; text-align: center; font-weight: bold; }
+  .totals-row td { font-weight: bold; }
+  .totals-row .label { text-align: right; }
+  .totals-row .value { text-align: right; white-space: nowrap; }
+  .arrete { margin-top: 4mm; }
+  .signatures { display: flex; justify-content: flex-end; margin-top: 6mm; }
+  .signatures strong { font-weight: bold; }
+  .signature-space { height: 20mm; }
+  .signatory-name { text-align: right; font-weight: normal; }
+</style>
+</head>
+<body>
+  <div class="content">
+    <div class="meta">
+      <span>{{ document.issued_place }}, le {{ document.issued_at|date:"d F Y" }}</span>
+    </div>
+    <h1>{{ document.get_doc_type_display|upper }} N° {{ document.number }}</h1>
+    <p class="client"><strong>CLIENT :</strong> {{ document.client }}</p>
+    {% if document.object_note %}
+    <p class="objet"><strong>Objet :</strong> <em>{{ document.object_note }}</em></p>
+    {% endif %}
+    <table>
+      <thead>
+        <tr>
+          <th class="num">N°</th>
+          <th>Réf</th>
+          <th>Désignation</th>
+          <th>Unité</th>
+          <th class="num">Quantité</th>
+          <th class="num">PU</th>
+          <th class="num">Montant</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if non_taxable_lines %}
+        <tr class="group-header"><td colspan="7">Produits non taxables</td></tr>
+        {% for line in non_taxable_lines %}
+        <tr>
+          <td class="num">{{ line.position }}</td>
+          <td>{{ line.reference }}</td>
+          <td>{{ line.designation }}</td>
+          <td>{{ line.unit }}</td>
+          <td class="num">{{ line.quantity }}</td>
+          <td class="num">{{ line.unit_price }}</td>
+          <td class="num">{{ line.montant }}</td>
+        </tr>
+        {% endfor %}
+        <tr class="totals-row"><td colspan="6" class="label">Total non taxables HT</td><td class="value">{{ total_non_taxable_ht }}</td></tr>
+        {% endif %}
+        {% if taxable_lines %}
+        <tr class="group-header"><td colspan="7">Produits taxables (prix TTC, TVA incluse)</td></tr>
+        {% for line in taxable_lines %}
+        <tr>
+          <td class="num">{{ line.position }}</td>
+          <td>{{ line.reference }}</td>
+          <td>{{ line.designation }}</td>
+          <td>{{ line.unit }}</td>
+          <td class="num">{{ line.quantity }}</td>
+          <td class="num">{{ line.unit_price }} TTC</td>
+          <td class="num">{{ line.montant }}</td>
+        </tr>
+        {% endfor %}
+        <tr class="totals-row"><td colspan="6" class="label">Total taxables TTC</td><td class="value">{{ total_taxable_ttc }}</td></tr>
+        <tr class="totals-row"><td colspan="6" class="label">TVA (18%)</td><td class="value">{{ tva }}</td></tr>
+        <tr class="totals-row"><td colspan="6" class="label">Total taxables HT</td><td class="value">{{ total_taxable_ht }}</td></tr>
+        {% endif %}
+        <tr class="totals-row"><td colspan="6" class="label">Total HT Général</td><td class="value">{{ total_ht_general }}</td></tr>
+        <tr class="totals-row"><td colspan="6" class="label">AIB (1%)</td><td class="value">{{ aib }}</td></tr>
+        <tr class="totals-row"><td colspan="6" class="label">TOTAL TTC Général</td><td class="value">{{ total_ttc_general }}</td></tr>
+      </tbody>
+    </table>
+
+    <p class="arrete">
+      Arrêté la présente facture proforma à la somme TTC de
+      <strong>{{ amount_words }} ({{ total_ttc_general }}) Francs CFA</strong>
+    </p>
+
+    <div class="signatures">
+      <strong>Le Gérant</strong>
+    </div>
+    <div class="signature-space"></div>
+    {% if document.signatory_name %}
+    <div class="signatory-name">{{ document.signatory_name }}</div>
+    {% endif %}
+  </div>
+  {% if footer_mask_top %}
+  <div class="footer-mask"></div>
+  {% endif %}
+</body>
+</html>
