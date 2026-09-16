@@ -152,11 +152,10 @@ lancer, nginx va les servir directement.
 cp deploy/nginx-bordereau.conf.example /tmp/bordereau-app.conf
 ```
 
-Édite `/tmp/bordereau-app.conf` :
-- remplace `change-me` (server_name) par `bordereau.abdelsaliou.dev`
-- le chemin `/var/www/bordereau-app` est déjà le bon si tu as suivi
-  l'étape 1 tel quel
-- si tu as changé `BACKEND_PORT`, adapte le `8001` dans les 3 `proxy_pass`
+Rien à éditer si tu as suivi les étapes précédentes telles quelles
+(`server_name` et le chemin `/var/www/bordereau-app` sont déjà corrects
+dans le fichier) — sauf si tu as changé `BACKEND_PORT` à l'étape 4, auquel
+cas adapte le `8001` dans les 3 `proxy_pass`.
 
 Puis :
 
