@@ -93,6 +93,14 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"  # cible de collectstatic, servi par WhiteNoise
 STORAGES = {
+    # "default" = stockage des fichiers uploadés (FileField/ImageField, ex.
+    # Letterhead) : requis par Django dès que STORAGES est défini, sinon
+    # tout accès à .url lève InvalidStorageError. STORAGE_BACKEND=local (cf.
+    # .env.prod.example) -> FileSystemStorage (le backend par défaut de
+    # Django), qui écrit dans MEDIA_ROOT. Le futur backend "s3" (AWS_* plus
+    # bas, actuellement commenté/non utilisé) remplacera cette entrée le
+    # jour où STORAGE_BACKEND=s3 sera réellement supporté.
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
 }
 MEDIA_URL = "media/"
