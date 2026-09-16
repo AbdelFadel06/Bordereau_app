@@ -101,30 +101,32 @@ function BordereauPreview({
       <p>
         <strong>CLIENT :</strong> {client || "..."}
       </p>
-      <table className="doc-preview__table">
-        <thead>
-          <tr>
-            <th>N°</th>
-            <th>Désignation</th>
-            <th>Unité</th>
-            <th>Réf</th>
-            <th>Quantité</th>
-            <th>Observation</th>
-          </tr>
-        </thead>
-        <tbody>
-          {lines.map((line, i) => (
-            <tr key={i}>
-              <td>{String(i + 1).padStart(2, "0")}</td>
-              <td>{line.designation}</td>
-              <td>{line.unit}</td>
-              <td>{line.reference}</td>
-              <td>{formatAmount(parseFloat(line.quantity) || 0)}</td>
-              <td>{line.observation}</td>
+      <div className="doc-preview__table-wrap">
+        <table className="doc-preview__table">
+          <thead>
+            <tr>
+              <th>N°</th>
+              <th>Désignation</th>
+              <th>Unité</th>
+              <th>Réf</th>
+              <th>Quantité</th>
+              <th>Observation</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {lines.map((line, i) => (
+              <tr key={i}>
+                <td>{String(i + 1).padStart(2, "0")}</td>
+                <td>{line.designation}</td>
+                <td>{line.unit}</td>
+                <td>{line.reference}</td>
+                <td>{formatAmount(parseFloat(line.quantity) || 0)}</td>
+                <td>{line.observation}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </>
   );
 }
@@ -147,19 +149,20 @@ function ProformaPreview({ companyName, number, client, issuedAt, issuedPlace, o
           <strong>Objet :</strong> <em>{objectNote}</em>
         </p>
       )}
-      <table className="doc-preview__table">
-        <thead>
-          <tr>
-            <th>N°</th>
-            <th>Réf</th>
-            <th>Désignation</th>
-            <th>Unité</th>
-            <th>Quantité</th>
-            <th>PU</th>
-            <th>Montant</th>
-          </tr>
-        </thead>
-        <tbody>
+      <div className="doc-preview__table-wrap">
+        <table className="doc-preview__table">
+          <thead>
+            <tr>
+              <th>N°</th>
+              <th>Réf</th>
+              <th>Désignation</th>
+              <th>Unité</th>
+              <th>Quantité</th>
+              <th>PU</th>
+              <th>Montant</th>
+            </tr>
+          </thead>
+          <tbody>
           {totals.nonTaxableLines.length > 0 && (
             <>
               <tr className="doc-preview__group-header">
@@ -224,8 +227,9 @@ function ProformaPreview({ companyName, number, client, issuedAt, issuedPlace, o
             <td colSpan={6}>TOTAL TTC Général</td>
             <td>{totals.totalTTCGeneral}</td>
           </tr>
-        </tbody>
-      </table>
+          </tbody>
+        </table>
+      </div>
     </>
   );
 }

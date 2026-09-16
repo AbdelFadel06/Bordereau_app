@@ -452,10 +452,16 @@ button:disabled {
   margin: 4px 0 14px;
 }
 
+.doc-preview__table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 10px;
+}
+
 .doc-preview__table {
   width: 100%;
+  min-width: 560px;
   border-collapse: collapse;
-  margin-top: 10px;
   font-size: 12px;
 }
 
