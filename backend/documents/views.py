@@ -53,7 +53,8 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 {"detail": "Cette société n'a pas encore de papier entête."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        pdf_file = render_document_pdf(document)
+        include_stamp = request.query_params.get("include_stamp", "1") != "0"
+        pdf_file = render_document_pdf(document, include_stamp=include_stamp)
         return FileResponse(pdf_file, as_attachment=True, filename=f"{document.doc_type}-{document.number}.pdf")
 
     @action(detail=True, methods=["post"])

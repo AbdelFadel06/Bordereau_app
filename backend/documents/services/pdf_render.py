@@ -38,11 +38,11 @@ def _letterhead_context(letterhead):
     }
 
 
-def render_document_pdf(document):
+def render_document_pdf(document, include_stamp=True):
     letterhead = document.company.letterhead
     context = {
         "document": document,
-        "stamp_url": _background_url(document.company.stamp_image),
+        "stamp_url": _background_url(document.company.stamp_image) if include_stamp else None,
         **_letterhead_context(letterhead),
     }
 

@@ -383,6 +383,15 @@ button:disabled {
   margin-top: 20px;
 }
 
+.field-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
 /* Icône + label : le label se masque sous 640px pour ne garder que l'icône
    (boutons d'action denses comme le tableau de lignes ou la liste). */
 .btn-label {

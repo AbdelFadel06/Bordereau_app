@@ -20,6 +20,7 @@ interface Company {
   id: number;
   name: string;
   letterhead: { is_validated: boolean } | null;
+  stamp_image: string | null;
 }
 
 interface LineForm {
@@ -100,6 +101,7 @@ export function DocumentEditorPage() {
   const [ocrProgress, setOcrProgress] = useState<number | null>(null);
   const [ocrError, setOcrError] = useState<string | null>(null);
   const [ocrReview, setOcrReview] = useState<LineForm[] | null>(null);
+  const [includeStamp, setIncludeStamp] = useState(true);
 
   // Résolution de la société pour un NOUVEAU document : depuis le paramètre
   // d'URL ?company= (vue déjà filtrée), sinon auto-sélection si une seule
@@ -314,7 +316,10 @@ export function DocumentEditorPage() {
     if (!documentId) return;
     setPdfError(null);
     try {
-      const response = await api.get(`/documents/${documentId}/pdf/`, { responseType: "blob" });
+      const response = await api.get(`/documents/${documentId}/pdf/`, {
+        responseType: "blob",
+        params: { include_stamp: includeStamp ? 1 : 0 },
+      });
       const url = URL.createObjectURL(response.data);
       const link = document.createElement("a");
       link.href = url;
@@ -368,7 +373,8 @@ export function DocumentEditorPage() {
     );
   }
 
-  const selectedCompanyName = companies?.find((c) => c.id === form.company)?.name;
+  const selectedCompany = companies?.find((c) => c.id === form.company);
+  const selectedCompanyName = selectedCompany?.name;
 
   return (
     <div>
@@ -721,6 +727,12 @@ export function DocumentEditorPage() {
             <Download size={15} />
             <span className="btn-label">Générer le PDF</span>
           </button>
+          {selectedCompany?.stamp_image && (
+            <label className="field-checkbox">
+              <input type="checkbox" checked={includeStamp} onChange={(e) => setIncludeStamp(e.target.checked)} />
+              Avec le cachet
+            </label>
+          )}
           {documentId && (
             <button
               type="button"
