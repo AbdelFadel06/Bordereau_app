@@ -40,8 +40,13 @@
   h1 { font-size: 14pt; text-align: center; text-decoration: underline; }
   .signatures { display: flex; justify-content: space-between; margin-top: 15mm; }
   .signatures strong { text-decoration: underline; }
-  .signature-space { height: 30mm; position: relative; }
-  .stamp { position: absolute; top: 0; right: 0; height: 40mm; width: auto; }
+  /* Zone laissée vide pour une signature manuscrite (pas de cachet) : hauteur
+     fixe. Avec un cachet, la zone grandit pour le contenir en entier — une
+     marge de chaque côté l'empêche de toucher "Livreur" au-dessus ou le nom
+     du signataire en dessous, jamais un positionnement en absolu qui
+     pourrait chevaucher l'un ou l'autre. */
+  .signature-space { min-height: 30mm; display: flex; justify-content: flex-end; padding: 3mm 0; }
+  .stamp { height: 34mm; width: auto; }
   .signatory-name { text-align: right; font-weight: normal; }
 </style>
 </head>
