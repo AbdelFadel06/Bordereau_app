@@ -637,6 +637,11 @@ table tbody tr:last-child td {
   background: var(--color-danger-bg);
 }
 
+.status-badge--muted {
+  color: var(--color-text-muted);
+  background: var(--color-bg);
+}
+
 /* --- Mes entreprises --- */
 
 .company-grid {
@@ -665,6 +670,24 @@ table tbody tr:last-child td {
   gap: 10px;
   margin-top: 16px;
   flex-wrap: wrap;
+}
+
+.company-card__stamp-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.company-card__stamp-preview {
+  height: 32px;
+  width: 32px;
+  object-fit: contain;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 2px;
 }
 
 /* --- Sélection de société avant création d'un document --- */

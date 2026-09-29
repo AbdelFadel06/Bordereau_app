@@ -15,4 +15,5 @@ class CompanySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Company
-        fields = ["id", "name", "letterhead", "created_at"]
+        fields = ["id", "name", "letterhead", "stamp_image", "created_at"]
+        read_only_fields = ["stamp_image"]  # géré par l'action stamp/, pas par un update direct

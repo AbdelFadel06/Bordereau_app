@@ -40,7 +40,11 @@ def _letterhead_context(letterhead):
 
 def render_document_pdf(document):
     letterhead = document.company.letterhead
-    context = {"document": document, **_letterhead_context(letterhead)}
+    context = {
+        "document": document,
+        "stamp_url": _background_url(document.company.stamp_image),
+        **_letterhead_context(letterhead),
+    }
 
     if document.doc_type == "proforma":
         template = "documents/document_pdf_proforma.html"

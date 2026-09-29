@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { AlertTriangle, ArrowRight, Building2, CheckCircle2, Plus, RefreshCw, Upload } from "lucide-react";
+import { AlertTriangle, ArrowRight, Building2, CheckCircle2, Plus, RefreshCw, Stamp, Upload, X } from "lucide-react";
 import { api } from "../../api/client";
 
 interface Company {
   id: number;
   name: string;
   letterhead: { is_validated: boolean } | null;
+  stamp_image: string | null;
 }
 
 function LetterheadStatus({ letterhead }: { letterhead: Company["letterhead"] }) {
@@ -40,6 +41,22 @@ export function CompanyListPage() {
 
   const validateMutation = useMutation({
     mutationFn: (companyId: number) => api.post(`/companies/${companyId}/validate_letterhead/`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["companies"] }),
+  });
+
+  const stampUploadMutation = useMutation({
+    mutationFn: ({ companyId, file }: { companyId: number; file: File }) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      return api.post(`/companies/${companyId}/stamp/`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["companies"] }),
+  });
+
+  const stampRemoveMutation = useMutation({
+    mutationFn: (companyId: number) => api.delete(`/companies/${companyId}/stamp/`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["companies"] }),
   });
 
@@ -95,6 +112,49 @@ export function CompanyListPage() {
                   des documents avec cette société.
                 </p>
               )}
+
+              <div className="company-card__stamp-row">
+                {company.stamp_image && (
+                  <img src={company.stamp_image} alt="Cachet" className="company-card__stamp-preview" />
+                )}
+                <span className="status-badge status-badge--muted">
+                  <Stamp size={11} /> {company.stamp_image ? "Cachet ajouté" : "Aucun cachet"}
+                </span>
+                <button
+                  type="button"
+                  className="btn-secondary btn-compact"
+                  disabled={stampUploadMutation.isPending}
+                  onClick={() => document.getElementById(`stamp-input-${company.id}`)?.click()}
+                >
+                  {company.stamp_image ? <RefreshCw size={13} /> : <Upload size={13} />}
+                  {company.stamp_image ? "Remplacer" : "Ajouter"}
+                </button>
+                {company.stamp_image && (
+                  <button
+                    type="button"
+                    className="btn-danger-ghost"
+                    disabled={stampRemoveMutation.isPending}
+                    onClick={() => stampRemoveMutation.mutate(company.id)}
+                  >
+                    <X size={13} /> Retirer
+                  </button>
+                )}
+                <input
+                  id={`stamp-input-${company.id}`}
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) stampUploadMutation.mutate({ companyId: company.id, file });
+                    e.target.value = "";
+                  }}
+                />
+              </div>
+              <p className="field-hint" style={{ marginTop: 4 }}>
+                Photo ou scan du cachet/signature sur papier blanc — le fond clair est retiré automatiquement, il
+                s'affichera en bas des bordereaux/factures générés.
+              </p>
 
               <div className="company-card__actions">
                 <Link to={`/documents?company=${company.id}`}>

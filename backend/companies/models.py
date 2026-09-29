@@ -10,6 +10,11 @@ class Company(models.Model):
     name = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # Cachet/signature à apposer automatiquement sur les documents générés
+    # (zone Livreur/Le Gérant) — fond blanc retiré à l'upload, stocké déjà
+    # en PNG transparent, pas de retraitement nécessaire ensuite.
+    stamp_image = models.ImageField(upload_to="stamps/", blank=True, null=True)
+
     def __str__(self):
         return self.name
 

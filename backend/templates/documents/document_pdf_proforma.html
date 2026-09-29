@@ -43,7 +43,8 @@
   .arrete { margin-top: 4mm; }
   .signatures { display: flex; justify-content: flex-end; margin-top: 6mm; }
   .signatures strong { font-weight: bold; }
-  .signature-space { height: 20mm; }
+  .signature-space { height: 20mm; position: relative; }
+  .stamp { position: absolute; top: 0; right: 0; height: 20mm; width: auto; }
   .signatory-name { text-align: right; font-weight: normal; }
 </style>
 </head>
@@ -116,7 +117,11 @@
     <div class="signatures">
       <strong>Le Gérant</strong>
     </div>
-    <div class="signature-space"></div>
+    <div class="signature-space">
+      {% if stamp_url %}
+      <img class="stamp" src="{{ stamp_url }}" alt="" />
+      {% endif %}
+    </div>
     {% if document.signatory_name %}
     <div class="signatory-name">{{ document.signatory_name }}</div>
     {% endif %}
