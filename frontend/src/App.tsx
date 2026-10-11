@@ -9,6 +9,8 @@ import { CompanyListPage } from "./features/companies/CompanyListPage";
 import { OnboardingPage } from "./features/onboarding/OnboardingPage";
 import { DocumentListPage } from "./features/documents/DocumentListPage";
 import { DocumentEditorPage } from "./features/documents/DocumentEditorPage";
+import { MarcheListPage } from "./features/marches/MarcheListPage";
+import { MarcheDetailPage } from "./features/marches/MarcheDetailPage";
 
 export default function App() {
   return (
@@ -25,6 +27,9 @@ export default function App() {
           <Route path="/onboarding/:companyId" element={<OnboardingPage />} />
           <Route path="/documents/new" element={<DocumentEditorPage />} />
           <Route path="/documents/:id" element={<DocumentEditorPage />} />
+          <Route path="/marches" element={<MarcheListPage />} />
+          <Route path="/marches/new" element={<MarcheDetailPage />} />
+          <Route path="/marches/:id" element={<MarcheDetailPage />} />
         </Route>
       </Route>
     </Routes>

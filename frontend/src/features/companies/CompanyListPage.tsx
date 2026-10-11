@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { AlertTriangle, ArrowRight, Building2, CheckCircle2, Plus, RefreshCw, Stamp, Upload, X } from "lucide-react";
+import { AlertTriangle, ArrowRight, Briefcase, Building2, CheckCircle2, Plus, RefreshCw, Stamp, Upload, X } from "lucide-react";
 import { api } from "../../api/client";
 
 interface Company {
@@ -160,6 +160,11 @@ export function CompanyListPage() {
                 <Link to={`/documents?company=${company.id}`}>
                   <button type="button" className="btn-accent">
                     Voir ses documents <ArrowRight size={14} />
+                  </button>
+                </Link>
+                <Link to={`/marches?company=${company.id}`}>
+                  <button type="button" className="btn-secondary">
+                    <Briefcase size={14} /> Marchés
                   </button>
                 </Link>
                 {company.letterhead && !company.letterhead.is_validated && (

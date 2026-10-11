@@ -1,14 +1,24 @@
 from rest_framework import serializers
 from companies.models import Company
+from marches.models import Marche, MarcheLine
 from .models import Document, DocumentLine
 
 
 class DocumentLineSerializer(serializers.ModelSerializer):
+    marche_line = serializers.PrimaryKeyRelatedField(required=False, allow_null=True, queryset=MarcheLine.objects.all())
+
     class Meta:
         model = DocumentLine
         fields = ["id", "position", "designation", "unit", "reference", "quantity", "unit_price",
-                  "is_taxable", "observation"]
+                  "is_taxable", "observation", "marche_line"]
         read_only_fields = ["position"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get("request")
+        if request is not None:
+            # Empêche de lier une ligne au marché d'un autre utilisateur.
+            self.fields["marche_line"].queryset = MarcheLine.objects.filter(marche__company__owner=request.user)
 
 
 class DocumentSerializer(serializers.ModelSerializer):
@@ -19,11 +29,12 @@ class DocumentSerializer(serializers.ModelSerializer):
     # plutôt que de laisser le validator auto-généré par DRF tourner sur une
     # valeur vide pendant la génération automatique.
     number = serializers.CharField(required=False, allow_blank=True, max_length=50, validators=[])
+    marche = serializers.PrimaryKeyRelatedField(required=False, allow_null=True, queryset=Marche.objects.all())
 
     class Meta:
         model = Document
         fields = ["id", "company", "doc_type", "number", "issued_at", "issued_place",
-                  "client", "object_note", "signatory_name", "status", "generated_pdf", "lines", "created_at"]
+                  "client", "object_note", "signatory_name", "status", "generated_pdf", "marche", "lines", "created_at"]
         read_only_fields = ["generated_pdf", "status"]
         # Sans ça, DRF génère automatiquement un UniqueTogetherValidator à
         # partir de la contrainte du modèle, qui force `number` à être
@@ -38,6 +49,7 @@ class DocumentSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         if request is not None:
             self.fields["company"].queryset = Company.objects.filter(owner=request.user)
+            self.fields["marche"].queryset = Marche.objects.filter(company__owner=request.user)
 
     def validate(self, attrs):
         number = (attrs.get("number") or "").strip()

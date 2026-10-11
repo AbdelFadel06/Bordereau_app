@@ -1,7 +1,7 @@
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
-import { Inbox, Plus } from "lucide-react";
+import { Inbox, Plus, Trash2 } from "lucide-react";
 import { api } from "../../api/client";
 import { docTypeShortLabel } from "./docTypes";
 
@@ -18,6 +18,21 @@ function formatDate(isoDateTime: string): string {
 export function DocumentListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const companyFilter = searchParams.get("company") ?? "";
+  const queryClient = useQueryClient();
+
+  const deleteMutation = useMutation({
+    mutationFn: (documentId: number) => api.delete(`/documents/${documentId}/`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["documents"] }),
+  });
+
+  function handleDelete(e: React.MouseEvent, doc: any) {
+    e.preventDefault();
+    e.stopPropagation();
+    const label = doc.number ? `N°${doc.number}` : "ce document";
+    if (window.confirm(`Supprimer définitivement ${label} ? Cette action est irréversible.`)) {
+      deleteMutation.mutate(doc.id);
+    }
+  }
 
   const { data: companies } = useQuery<Company[]>({
     queryKey: ["companies"],
@@ -90,7 +105,7 @@ export function DocumentListPage() {
       {sortedDocuments.length > 0 && (
         <ul className="doc-list">
           {sortedDocuments.map((doc: any) => (
-            <li key={doc.id}>
+            <li key={doc.id} className="doc-list__row-wrap">
               <Link to={`/documents/${doc.id}`} className="doc-list__item">
                 <div className="doc-list__row">
                   <span className="doc-list__company">{companyNameById.get(doc.company) ?? "?"}</span>
@@ -103,6 +118,14 @@ export function DocumentListPage() {
                   <span>{formatDate(doc.created_at)}</span>
                 </div>
               </Link>
+              <button
+                type="button"
+                className="doc-list__delete"
+                aria-label="Supprimer ce document"
+                onClick={(e) => handleDelete(e, doc)}
+              >
+                <Trash2 size={15} />
+              </button>
             </li>
           ))}
         </ul>

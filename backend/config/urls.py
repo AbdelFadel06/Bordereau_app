@@ -10,4 +10,6 @@ urlpatterns = [
     path("api/documents/", include("documents.urls")),
     path("api/catalog/", include("catalog.urls")),
     path("api/ingestion/", include("ingestion.urls")),
+    path("api/marches/", include("marches.urls")),
+    path("api/marche-documents/", include("marches.document_urls")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

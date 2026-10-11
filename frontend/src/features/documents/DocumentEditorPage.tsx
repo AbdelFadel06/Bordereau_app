@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ArrowRight, Check, Copy, Download, Eye, EyeOff, FileSpreadsheet, Plus, ScanLine, Save, Trash2, X } from "lucide-react";
+import { AlertTriangle, ArrowRight, Check, Copy, Download, Eye, EyeOff, FileSpreadsheet, Loader2, Pencil, Plus, ScanLine, Save, Trash2, X } from "lucide-react";
 import { api } from "../../api/client";
-import { DOC_TYPES } from "./docTypes";
+import { DOC_TYPES, docTypeLabel } from "./docTypes";
 import { DocumentPreview } from "./DocumentPreview";
 import { parseCsvToLines } from "./csvImport";
 import { recognizeArticleList } from "./ocrImport";
@@ -31,6 +31,7 @@ interface LineForm {
   unit_price: string;
   is_taxable: boolean;
   observation: string;
+  marche_line: number | null;
 }
 
 interface DocumentForm {
@@ -42,6 +43,21 @@ interface DocumentForm {
   issued_place: string;
   object_note: string;
   signatory_name: string;
+  marche: number | null;
+}
+
+interface MarcheLine {
+  id: number;
+  designation: string;
+  unit: string;
+  reference: string;
+  quantity_remaining: number;
+}
+
+interface Marche {
+  id: number;
+  client_name: string;
+  lines: MarcheLine[];
 }
 
 const emptyLine = (): LineForm => ({
@@ -52,6 +68,7 @@ const emptyLine = (): LineForm => ({
   unit_price: "",
   is_taxable: false,
   observation: "",
+  marche_line: null,
 });
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -67,6 +84,7 @@ export function DocumentEditorPage() {
   const queryClient = useQueryClient();
   const isEditing = Boolean(id);
   const queryCompanyId = searchParams.get("company");
+  const queryMarcheId = searchParams.get("marche");
 
   const { data: companies } = useQuery<Company[]>({
     queryKey: ["companies"],
@@ -88,10 +106,18 @@ export function DocumentEditorPage() {
     issued_place: "",
     object_note: "",
     signatory_name: "",
+    marche: queryMarcheId ? Number(queryMarcheId) : null,
   });
   const [lines, setLines] = useState<LineForm[]>([emptyLine()]);
   const isProforma = form.doc_type === "proforma";
   const [documentId, setDocumentId] = useState<number | null>(id ? Number(id) : null);
+  // Resynchronise avec l'URL : après navigate() vers un autre id sans
+  // remontage du composant (ex: après duplication), documentId restait
+  // sinon bloqué sur l'ancien document — "Enregistrer" aurait alors
+  // écrasé le mauvais document.
+  useEffect(() => {
+    setDocumentId(id ? Number(id) : null);
+  }, [id]);
   const [documentNumber, setDocumentNumber] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
@@ -102,6 +128,15 @@ export function DocumentEditorPage() {
   const [ocrError, setOcrError] = useState<string | null>(null);
   const [ocrReview, setOcrReview] = useState<LineForm[] | null>(null);
   const [includeStamp, setIncludeStamp] = useState(true);
+
+  // "view" montre le PDF réel déjà généré (cas normal en ouvrant un document
+  // existant) ; "edit" montre le formulaire de saisie actuel. Un document
+  // tout juste créé n'a encore rien à montrer, donc on démarre en édition.
+  const [mode, setMode] = useState<"view" | "edit">(isEditing ? "view" : "edit");
+  const [viewPdfUrl, setViewPdfUrl] = useState<string | null>(null);
+  const [viewPdfLoading, setViewPdfLoading] = useState(false);
+  const [viewPdfError, setViewPdfError] = useState<string | null>(null);
+  const [pdfRefreshKey, setPdfRefreshKey] = useState(0);
 
   // Résolution de la société pour un NOUVEAU document : depuis le paramètre
   // d'URL ?company= (vue déjà filtrée), sinon auto-sélection si une seule
@@ -142,6 +177,7 @@ export function DocumentEditorPage() {
       issued_place: existingDocument.issued_place ?? "",
       object_note: existingDocument.object_note ?? "",
       signatory_name: existingDocument.signatory_name ?? "",
+      marche: existingDocument.marche ?? null,
     });
     setLines(
       existingDocument.lines.length
@@ -153,11 +189,53 @@ export function DocumentEditorPage() {
             unit_price: l.unit_price != null ? String(l.unit_price) : "",
             is_taxable: Boolean(l.is_taxable),
             observation: l.observation ?? "",
+            marche_line: l.marche_line ?? null,
           }))
         : [emptyLine()]
     );
     setDocumentNumber(existingDocument.number);
   }, [existingDocument]);
+
+  // Charge le vrai PDF (pas l'aperçu approximatif) quand on est en mode
+  // vue — à l'ouverture d'un document existant, et à nouveau après chaque
+  // sauvegarde réussie (pdfRefreshKey) ou changement du cachet.
+  useEffect(() => {
+    if (mode !== "view" || !documentId) return;
+    let cancelled = false;
+    let objectUrl: string | null = null;
+    setViewPdfLoading(true);
+    setViewPdfError(null);
+    api
+      .get(`/documents/${documentId}/pdf/`, {
+        responseType: "blob",
+        params: { include_stamp: includeStamp ? 1 : 0 },
+      })
+      .then((response) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(response.data);
+        setViewPdfUrl(objectUrl);
+      })
+      .catch(async (err: any) => {
+        if (cancelled) return;
+        if (err.response?.data instanceof Blob) {
+          const text = await err.response.data.text();
+          try {
+            setViewPdfError(JSON.parse(text).detail ?? "Échec de la génération du PDF.");
+          } catch {
+            setViewPdfError("Échec de la génération du PDF.");
+          }
+        } else {
+          setViewPdfError("Échec de la génération du PDF.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setViewPdfLoading(false);
+      });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [mode, documentId, includeStamp, pdfRefreshKey]);
 
   const { data: articles } = useQuery<Article[]>({
     queryKey: ["articles", form.company],
@@ -170,6 +248,31 @@ export function DocumentEditorPage() {
     articles?.forEach((a) => map.set(a.designation, a));
     return map;
   }, [articles]);
+
+  const { data: marches } = useQuery<Marche[]>({
+    queryKey: ["marches", form.company],
+    queryFn: () => api.get(`/marches/?company=${form.company}`).then((r) => r.data),
+    enabled: Boolean(form.company) && !isProforma,
+  });
+  const selectedMarche = marches?.find((m) => m.id === form.marche);
+
+  // Arrivée depuis "Nouveau bordereau pour ce marché" (?marche=) sur un
+  // document encore vierge : préremplit les lignes avec les articles du
+  // marché (quantité à saisir, déjà reliés à la bonne MarcheLine) plutôt
+  // que de laisser l'utilisateur tout retaper.
+  useEffect(() => {
+    if (isEditing || !selectedMarche || lines.some((l) => l.designation)) return;
+    setLines(
+      selectedMarche.lines.map((ml) => ({
+        ...emptyLine(),
+        designation: ml.designation,
+        unit: ml.unit,
+        reference: ml.reference,
+        quantity: "",
+        marche_line: ml.id,
+      }))
+    );
+  }, [selectedMarche, isEditing]);
 
   function updateLine(index: number, patch: Partial<LineForm>) {
     setLines((prev) => prev.map((line, i) => (i === index ? { ...line, ...patch } : line)));
@@ -213,9 +316,10 @@ export function DocumentEditorPage() {
           setImportError("Aucune ligne valide trouvée dans le fichier (désignation manquante partout).");
           return;
         }
+        const importedLines: LineForm[] = imported.map((l) => ({ ...l, marche_line: null }));
         setLines((prev) => {
           const isPristine = prev.length === 1 && !prev[0].designation;
-          return isPristine ? imported : [...prev, ...imported];
+          return isPristine ? importedLines : [...prev, ...importedLines];
         });
         const plural = imported.length > 1 ? "s" : "";
         let message = `${imported.length} ligne${plural} importée${plural}.`;
@@ -244,7 +348,7 @@ export function DocumentEditorPage() {
         setOcrError("Aucun texte reconnu sur cette image. Réessaie avec une image plus nette.");
         return;
       }
-      setOcrReview(recognized);
+      setOcrReview(recognized.map((l) => ({ ...l, marche_line: null })));
     } catch (err: any) {
       setOcrError(err?.message ?? "Échec de l'analyse de l'image.");
     } finally {
@@ -282,6 +386,7 @@ export function DocumentEditorPage() {
           unit_price: isProforma ? l.unit_price || null : null,
           is_taxable: isProforma ? l.is_taxable : false,
           observation: l.observation,
+          marche_line: isProforma ? null : l.marche_line,
         })),
       };
       if (documentId) {
@@ -297,6 +402,11 @@ export function DocumentEditorPage() {
         setDocumentId(data.id);
         navigate(`/documents/${data.id}`, { replace: true });
       }
+      // Le PDF reflète maintenant ce qui vient d'être enregistré — on
+      // repasse en vue pour le montrer directement (régénéré via
+      // pdfRefreshKey, même si documentId/includeStamp n'ont pas changé).
+      setMode("view");
+      setPdfRefreshKey((k) => k + 1);
     },
     onError: (err: any) => {
       const numberError = err?.response?.data?.number?.[0];
@@ -304,10 +414,27 @@ export function DocumentEditorPage() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: () => api.delete(`/documents/${documentId}/`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["documents"] });
+      navigate("/documents");
+    },
+  });
+
+  function handleDelete() {
+    if (!documentId) return;
+    const label = documentNumber ? `N°${documentNumber}` : "ce document";
+    if (window.confirm(`Supprimer définitivement ${label} ? Cette action est irréversible.`)) {
+      deleteMutation.mutate();
+    }
+  }
+
   const duplicateMutation = useMutation({
     mutationFn: () => api.post(`/documents/${documentId}/duplicate/`).then((r) => r.data),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["documents"] });
+      setMode("view");
       navigate(`/documents/${data.id}`);
     },
   });
@@ -376,6 +503,66 @@ export function DocumentEditorPage() {
   const selectedCompany = companies?.find((c) => c.id === form.company);
   const selectedCompanyName = selectedCompany?.name;
 
+  if (mode === "view" && documentId) {
+    return (
+      <div>
+        <h1 style={{ marginBottom: 4 }}>
+          {existingDocument ? docTypeLabel(existingDocument.doc_type) : "Document"}
+          {documentNumber && ` N°${documentNumber}`}
+        </h1>
+        {selectedCompanyName && <p className="page-intro">{selectedCompanyName}</p>}
+
+        <div className="actions-row">
+          <button type="button" className="btn-icon-collapsible" onClick={() => setMode("edit")}>
+            <Pencil size={15} />
+            <span className="btn-label">Modifier</span>
+          </button>
+          <button type="button" className="btn-secondary btn-icon-collapsible" onClick={handleGeneratePdf}>
+            <Download size={15} />
+            <span className="btn-label">Télécharger</span>
+          </button>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => duplicateMutation.mutate()}
+            disabled={duplicateMutation.isPending}
+          >
+            <Copy size={15} /> {duplicateMutation.isPending ? "Duplication..." : "Dupliquer"}
+          </button>
+          {selectedCompany?.stamp_image && (
+            <label className="field-checkbox">
+              <input type="checkbox" checked={includeStamp} onChange={(e) => setIncludeStamp(e.target.checked)} />
+              Avec le cachet
+            </label>
+          )}
+          <button
+            type="button"
+            className="btn-danger-ghost"
+            onClick={handleDelete}
+            disabled={deleteMutation.isPending}
+            style={{ marginLeft: "auto" }}
+          >
+            <Trash2 size={15} /> {deleteMutation.isPending ? "Suppression..." : "Supprimer"}
+          </button>
+        </div>
+
+        {pdfError && <p role="alert">{pdfError}</p>}
+
+        <div className="pdf-viewer">
+          {viewPdfLoading && (
+            <div className="pdf-viewer__status">
+              <Loader2 size={20} className="spin" /> Génération du PDF...
+            </div>
+          )}
+          {viewPdfError && !viewPdfLoading && <div className="pdf-viewer__status pdf-viewer__status--error">{viewPdfError}</div>}
+          {viewPdfUrl && !viewPdfLoading && !viewPdfError && (
+            <iframe src={viewPdfUrl} title="PDF du document" className="pdf-viewer__frame" />
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <h1>
@@ -383,6 +570,12 @@ export function DocumentEditorPage() {
         {documentNumber && ` — N°${documentNumber}`}
       </h1>
       {selectedCompanyName && !isEditing && <p className="page-intro">Pour {selectedCompanyName}</p>}
+      {isEditing && (
+        <button type="button" className="btn-secondary btn-icon-collapsible" onClick={() => setMode("view")} style={{ marginBottom: 16 }}>
+          <Eye size={15} />
+          <span className="btn-label">Annuler et revenir au PDF</span>
+        </button>
+      )}
 
       <datalist id="articles-datalist">
         {articles?.map((a) => (
@@ -470,6 +663,25 @@ export function DocumentEditorPage() {
             />
           </div>
 
+          {!isProforma && marches && marches.length > 0 && (
+            <div className="field">
+              <label htmlFor="marche">Marché (facultatif)</label>
+              <select
+                id="marche"
+                value={form.marche ?? ""}
+                onChange={(e) => setForm({ ...form, marche: e.target.value ? Number(e.target.value) : null })}
+              >
+                <option value="">Aucun</option>
+                {marches.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.client_name}
+                  </option>
+                ))}
+              </select>
+              <span className="field-hint">Relie ce bordereau à un marché pour suivre les quantités livrées.</span>
+            </div>
+          )}
+
           <div className="field" style={{ marginBottom: 0 }}>
             <label htmlFor="signatory_name">Nom du gérant / de la directrice (facultatif)</label>
             <input
@@ -494,6 +706,7 @@ export function DocumentEditorPage() {
                 {isProforma && <th>PU</th>}
                 {isProforma && <th>Taxable</th>}
                 {!isProforma && <th>Observation</th>}
+                {form.marche && <th>Ligne du marché</th>}
                 <th></th>
               </tr>
             </thead>
@@ -561,6 +774,21 @@ export function DocumentEditorPage() {
                         value={line.observation}
                         onChange={(e) => updateLine(index, { observation: e.target.value })}
                       />
+                    </td>
+                  )}
+                  {form.marche && (
+                    <td>
+                      <select
+                        value={line.marche_line ?? ""}
+                        onChange={(e) => updateLine(index, { marche_line: e.target.value ? Number(e.target.value) : null })}
+                      >
+                        <option value="">Hors marché</option>
+                        {selectedMarche?.lines.map((ml) => (
+                          <option key={ml.id} value={ml.id}>
+                            {ml.designation} (reste {ml.quantity_remaining})
+                          </option>
+                        ))}
+                      </select>
                     </td>
                   )}
                   <td>

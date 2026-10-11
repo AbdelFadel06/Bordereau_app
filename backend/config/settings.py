@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     "documents",
     "catalog",
     "ingestion",
+    "marches",
 ]
 
 MIDDLEWARE = [

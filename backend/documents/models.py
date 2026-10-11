@@ -1,5 +1,6 @@
 from django.db import models
 from companies.models import Company
+from marches.models import Marche, MarcheLine
 
 
 class Document(models.Model):
@@ -25,6 +26,9 @@ class Document(models.Model):
     signatory_name = models.CharField(max_length=255, blank=True)  # nom du gérant/directrice, facultatif
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.DRAFT)
     generated_pdf = models.FileField(upload_to="documents/pdf/", blank=True)
+    # Marché livré contre ce bordereau (facultatif) — permet de calculer les
+    # quantités livrées/restantes par ligne du marché.
+    marche = models.ForeignKey(Marche, on_delete=models.SET_NULL, null=True, blank=True, related_name="deliveries")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -47,6 +51,9 @@ class DocumentLine(models.Model):
     unit_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     is_taxable = models.BooleanField(default=False)  # facture proforma : TVA 18% incluse dans unit_price si True
     observation = models.CharField(max_length=255, blank=True)
+    # Ligne du marché livrée par cette ligne (facultatif) — c'est ce lien
+    # qui permet de calculer MarcheLine.quantity_delivered.
+    marche_line = models.ForeignKey(MarcheLine, on_delete=models.SET_NULL, null=True, blank=True, related_name="delivery_lines")
 
     class Meta:
         ordering = ["position"]
