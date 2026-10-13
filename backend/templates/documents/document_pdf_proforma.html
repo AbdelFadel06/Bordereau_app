@@ -48,7 +48,7 @@
      marge de chaque côté l'empêche de toucher "Le Gérant" au-dessus ou le
      nom du signataire en dessous, jamais un positionnement en absolu qui
      pourrait chevaucher l'un ou l'autre. */
-  .signature-space { min-height: 20mm; display: flex; justify-content: flex-end; padding: 3mm 0; }
+  .signature-space { min-height: 35mm; display: flex; justify-content: flex-end; padding: 3mm 0; }
   .stamp { height: 34mm; width: auto; }
   .signatory-name { text-align: right; font-weight: normal; }
 </style>
@@ -100,7 +100,7 @@
           <td>{{ line.designation }}</td>
           <td>{{ line.unit }}</td>
           <td class="num">{{ line.quantity }}</td>
-          <td class="num">{{ line.unit_price }} TTC</td>
+          <td class="num">{{ line.unit_price }}</td>
           <td class="num">{{ line.montant }}</td>
         </tr>
         {% endfor %}
@@ -120,7 +120,7 @@
     </p>
 
     <div class="signatures">
-      <strong>Le Gérant</strong>
+      <strong>{{ document.signatory_label|default:"Le Gérant" }}</strong>
     </div>
     <div class="signature-space">
       {% if stamp_url %}

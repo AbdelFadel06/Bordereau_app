@@ -197,7 +197,7 @@ function ProformaPreview({ companyName, number, client, issuedAt, issuedPlace, o
                   <td>{line.designation}</td>
                   <td>{line.unit}</td>
                   <td>{formatAmount(parseFloat(line.quantity) || 0)}</td>
-                  <td>{formatAmount(parseFloat(line.unit_price) || 0)} TTC</td>
+                  <td>{formatAmount(parseFloat(line.unit_price) || 0)}</td>
                   <td>{formatAmount((parseFloat(line.quantity) || 0) * (parseFloat(line.unit_price) || 0))}</td>
                 </tr>
               ))}

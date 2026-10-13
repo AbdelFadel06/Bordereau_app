@@ -24,6 +24,9 @@ class Document(models.Model):
     client = models.CharField(max_length=255)
     object_note = models.CharField(max_length=255, blank=True)  # champ "OBJET"
     signatory_name = models.CharField(max_length=255, blank=True)  # nom du gérant/directrice, facultatif
+    # Libellé au-dessus de la signature sur la facture proforma (ex: "Le
+    # Gérant", "La Directrice") — modifiable, "Le Gérant" par défaut.
+    signatory_label = models.CharField(max_length=100, blank=True, default="Le Gérant")
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.DRAFT)
     generated_pdf = models.FileField(upload_to="documents/pdf/", blank=True)
     # Marché livré contre ce bordereau (facultatif) — permet de calculer les

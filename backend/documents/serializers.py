@@ -34,7 +34,8 @@ class DocumentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Document
         fields = ["id", "company", "doc_type", "number", "issued_at", "issued_place",
-                  "client", "object_note", "signatory_name", "status", "generated_pdf", "marche", "lines", "created_at"]
+                  "client", "object_note", "signatory_name", "signatory_label", "status", "generated_pdf", "marche",
+                  "lines", "created_at"]
         read_only_fields = ["generated_pdf", "status"]
         # Sans ça, DRF génère automatiquement un UniqueTogetherValidator à
         # partir de la contrainte du modèle, qui force `number` à être

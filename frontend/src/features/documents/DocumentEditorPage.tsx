@@ -43,6 +43,7 @@ interface DocumentForm {
   issued_place: string;
   object_note: string;
   signatory_name: string;
+  signatory_label: string;
   marche: number | null;
 }
 
@@ -106,6 +107,7 @@ export function DocumentEditorPage() {
     issued_place: "",
     object_note: "",
     signatory_name: "",
+    signatory_label: "Le Gérant",
     marche: queryMarcheId ? Number(queryMarcheId) : null,
   });
   const [lines, setLines] = useState<LineForm[]>([emptyLine()]);
@@ -177,6 +179,7 @@ export function DocumentEditorPage() {
       issued_place: existingDocument.issued_place ?? "",
       object_note: existingDocument.object_note ?? "",
       signatory_name: existingDocument.signatory_name ?? "",
+      signatory_label: existingDocument.signatory_label || "Le Gérant",
       marche: existingDocument.marche ?? null,
     });
     setLines(
@@ -682,14 +685,29 @@ export function DocumentEditorPage() {
             </div>
           )}
 
-          <div className="field" style={{ marginBottom: 0 }}>
-            <label htmlFor="signatory_name">Nom du gérant / de la directrice (facultatif)</label>
-            <input
-              id="signatory_name"
-              type="text"
-              value={form.signatory_name}
-              onChange={(e) => setForm({ ...form, signatory_name: e.target.value })}
-            />
+          <div className="form-row" style={{ marginBottom: 0 }}>
+            {isProforma && (
+              <div className="field">
+                <label htmlFor="signatory_label">Libellé au-dessus de la signature</label>
+                <input
+                  id="signatory_label"
+                  type="text"
+                  placeholder="Le Gérant"
+                  value={form.signatory_label}
+                  onChange={(e) => setForm({ ...form, signatory_label: e.target.value })}
+                />
+                <span className="field-hint">Ex : "Le Gérant", "La Directrice"...</span>
+              </div>
+            )}
+            <div className="field">
+              <label htmlFor="signatory_name">Nom du gérant / de la directrice (facultatif)</label>
+              <input
+                id="signatory_name"
+                type="text"
+                value={form.signatory_name}
+                onChange={(e) => setForm({ ...form, signatory_name: e.target.value })}
+              />
+            </div>
           </div>
         </div>
 
