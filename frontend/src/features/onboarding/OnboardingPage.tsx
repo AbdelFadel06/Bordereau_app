@@ -37,7 +37,7 @@ export function OnboardingPage() {
       });
       setStatus("done");
       queryClient.invalidateQueries({ queryKey: ["companies"] });
-      navigate("/companies", { replace: true });
+      navigate(`/onboarding/${companyId}/zone`, { replace: true });
     } catch {
       setStatus("idle");
       setError("Échec de l'envoi du papier entête. Réessaie.");

@@ -707,14 +707,37 @@ directement par ce même nginx.
 
 ## Ce qui N'EST PAS fait — actions à mener, dans cet ordre de priorité
 
-### 1. Écran d'ajustement manuel de la zone détectée
-Le backend renvoie `content_top`/`content_bottom` mais rien côté frontend
-n'affiche l'aperçu avec la ligne ajustable. À faire :
-- Composant qui affiche `letterhead.background_image` avec une ligne
-  horizontale positionnée à `content_top`% de la hauteur
-- Ligne draggable (mousedown/mousemove) qui `PATCH` la valeur sur
-  `Letterhead` au relâchement
-- Utile aussi pour `content_bottom` si un pied de page est détecté
+### 1. ~~Écran d'ajustement manuel de la zone détectée~~ — fait
+
+`LetterheadZonePage.tsx` (route `/onboarding/:companyId/zone`) : affiche
+`letterhead.background_image` dans un cadre au ratio A4 exact
+(`background-size: 100% 100%`, comme le PDF réel), avec deux lignes
+draggables (pointer events, souris + tactile) pour `content_top` et
+`content_bottom` (ce dernier activable/désactivable via une case à cocher
+— pas tous les entêtes n'ont un pied de page imprimé à masquer). Overlay
+rouge sur les zones masquées, vert sur la zone éditable. `PATCH
+/api/companies/{id}/adjust_letterhead/` enregistre les deux valeurs et
+valide dans la foulée (remplace l'ancien `validate_letterhead` qui
+validait à l'aveugle sans jamais montrer la zone détectée).
+
+Déclenché automatiquement après un (ré)upload de papier entête
+(`OnboardingPage` y navigue au lieu de retourner direct sur la liste), et
+ré-accessible à tout moment via "Ajuster la zone" sur la carte société
+dans `CompanyListPage` — utile pour corriger un entête déjà validé dont la
+détection auto n'a pas été assez loin (ex: date déjà imprimée sur
+l'entête qui se retrouve dupliquée avec celle ajoutée par l'app).
+
+**Bug trouvé en implémentant** : en dev, `/media` n'était pas proxifié par
+Vite (seul `/api` l'était) — sans ça, l'image de fond du papier entête
+(et la miniature du cachet) ne se chargeait pas dans le navigateur.
+Deuxième bug lié : Vite proxifiait `/api` avec `changeOrigin` activé par
+défaut (forme raccourcie `"/api": "url"`), donc Django voyait
+`Host: backend:8000` (nom Docker interne, invisible hors du réseau
+docker-compose) et `request.build_absolute_uri()` renvoyait des URLs de
+fichiers inaccessibles au navigateur. Les deux entrées de proxy
+(`/api` et `/media`) passent maintenant explicitement `changeOrigin:
+false` pour préserver `Host: localhost:5173`, et Django renvoie alors des
+URLs rechargeables.
 
 ### 2. Import CSV/Excel des articles
 **CSV fait** (`feature/import-articles`, pas encore mergé — voir plus haut) :

@@ -25,7 +25,14 @@ export default defineConfig({
   ],
   server: {
     proxy: {
-      "/api": "http://backend:8000",
+      // changeOrigin:false (le défaut Vite le met à true pour le ciblage
+      // simple "/api": "url") : on préserve le Host d'origine
+      // (localhost:5173) pour que request.build_absolute_uri() côté
+      // Django renvoie des URLs de fichiers (papier entête, cachet)
+      // rechargeables par le navigateur, pas "backend:8000" (nom Docker
+      // interne, invisible hors du réseau docker-compose).
+      "/api": { target: "http://backend:8000", changeOrigin: false },
+      "/media": { target: "http://backend:8000", changeOrigin: false },
     },
   },
 });

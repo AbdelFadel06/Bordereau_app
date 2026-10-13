@@ -1,6 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { AlertTriangle, ArrowRight, Briefcase, Building2, CheckCircle2, Plus, RefreshCw, Stamp, Upload, X } from "lucide-react";
+import { AlertTriangle, ArrowRight, Briefcase, Building2, CheckCircle2, RefreshCw, Plus, Settings2, Stamp, Upload, X } from "lucide-react";
 import { api } from "../../api/client";
 
 interface Company {
@@ -37,11 +37,6 @@ export function CompanyListPage() {
   const { data, isLoading } = useQuery<Company[]>({
     queryKey: ["companies"],
     queryFn: () => api.get("/companies/").then((r) => r.data),
-  });
-
-  const validateMutation = useMutation({
-    mutationFn: (companyId: number) => api.post(`/companies/${companyId}/validate_letterhead/`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["companies"] }),
   });
 
   const stampUploadMutation = useMutation({
@@ -168,14 +163,18 @@ export function CompanyListPage() {
                   </button>
                 </Link>
                 {company.letterhead && !company.letterhead.is_validated && (
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={() => validateMutation.mutate(company.id)}
-                    disabled={validateMutation.isPending}
-                  >
-                    <CheckCircle2 size={14} /> Valider
-                  </button>
+                  <Link to={`/onboarding/${company.id}/zone`}>
+                    <button type="button" className="btn-secondary">
+                      <CheckCircle2 size={14} /> Valider
+                    </button>
+                  </Link>
+                )}
+                {company.letterhead && company.letterhead.is_validated && (
+                  <Link to={`/onboarding/${company.id}/zone`}>
+                    <button type="button" className="btn-secondary">
+                      <Settings2 size={14} /> Ajuster la zone
+                    </button>
+                  </Link>
                 )}
               </div>
             </div>

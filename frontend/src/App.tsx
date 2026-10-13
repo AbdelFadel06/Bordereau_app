@@ -7,6 +7,7 @@ import { RegisterPage } from "./features/auth/RegisterPage";
 import { CompanyCreatePage } from "./features/companies/CompanyCreatePage";
 import { CompanyListPage } from "./features/companies/CompanyListPage";
 import { OnboardingPage } from "./features/onboarding/OnboardingPage";
+import { LetterheadZonePage } from "./features/onboarding/LetterheadZonePage";
 import { DocumentListPage } from "./features/documents/DocumentListPage";
 import { DocumentEditorPage } from "./features/documents/DocumentEditorPage";
 import { MarcheListPage } from "./features/marches/MarcheListPage";
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="/companies" element={<CompanyListPage />} />
           <Route path="/company/new" element={<CompanyCreatePage />} />
           <Route path="/onboarding/:companyId" element={<OnboardingPage />} />
+          <Route path="/onboarding/:companyId/zone" element={<LetterheadZonePage />} />
           <Route path="/documents/new" element={<DocumentEditorPage />} />
           <Route path="/documents/:id" element={<DocumentEditorPage />} />
           <Route path="/marches" element={<MarcheListPage />} />

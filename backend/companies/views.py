@@ -17,20 +17,30 @@ class CompanyViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
 
-    @action(detail=True, methods=["post"])
-    def validate_letterhead(self, request, pk=None):
-        """Confirme que le papier entête (zone détectée automatiquement)
-        convient — débloque la création de documents pour cette société.
-        Étape minimale en attendant l'écran d'ajustement manuel de la zone."""
+    @action(detail=True, methods=["patch"])
+    def adjust_letterhead(self, request, pk=None):
+        """Enregistre la zone éditable ajustée manuellement (content_top /
+        content_bottom, en % de la hauteur de page) et valide dans la
+        foulée — un seul geste : on ajuste, on confirme. content_bottom à
+        null retire le masquage de pied de page (entête sans pied imprimé)."""
         company = self.get_object()
         letterhead = getattr(company, "letterhead", None)
         if not letterhead:
             return Response(
-                {"detail": "Cette société n'a pas encore de papier entête à valider."},
+                {"detail": "Cette société n'a pas encore de papier entête à ajuster."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        content_top = request.data.get("content_top")
+        if content_top is None:
+            return Response({"detail": "content_top est requis."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            letterhead.content_top = float(content_top)
+            content_bottom = request.data.get("content_bottom")
+            letterhead.content_bottom = float(content_bottom) if content_bottom is not None else None
+        except (TypeError, ValueError):
+            return Response({"detail": "Valeurs invalides."}, status=status.HTTP_400_BAD_REQUEST)
         letterhead.is_validated = True
-        letterhead.save(update_fields=["is_validated"])
+        letterhead.save(update_fields=["content_top", "content_bottom", "is_validated"])
         return Response(CompanySerializer(company).data)
 
     @action(detail=True, methods=["post", "delete"], parser_classes=[MultiPartParser])
