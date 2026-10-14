@@ -6,7 +6,7 @@ class LetterheadSerializer(serializers.ModelSerializer):
     class Meta:
         model = Letterhead
         fields = ["id", "source_file", "background_image", "content_top", "content_bottom",
-                  "header_color", "is_validated"]
+                  "header_mask_top", "header_color", "is_validated"]
         read_only_fields = ["background_image", "header_color"]  # générés par la tâche de conversion
 
 

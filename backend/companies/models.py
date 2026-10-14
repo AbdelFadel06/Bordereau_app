@@ -31,6 +31,12 @@ class Letterhead(models.Model):
     # Zone d'écriture détectée automatiquement (en % de la hauteur de page)
     content_top = models.FloatField(help_text="Limite haute de la zone éditable, en % de la page")
     content_bottom = models.FloatField(null=True, blank=True, help_text="Limite basse si pied de page imprimé")
+    # Masque blanc optionnel ENTRE le logo et content_top, pour cacher un
+    # élément déjà imprimé sur l'entête (ex: une date placeholder) que
+    # content_top seul ne peut pas faire disparaître — il ne fait que
+    # déplacer où commence le contenu de l'app, pas masquer ce qu'il y a
+    # au-dessus. Même principe que le masque de pied de page, en haut.
+    header_mask_top = models.FloatField(null=True, blank=True, help_text="Début du masque, si un élément imprimé entre le logo et le contenu doit être caché")
 
     # Couleur dominante détectée automatiquement sur l'entête (ex: le bleu du
     # logo) — réutilisée pour styler les documents générés (fond du header

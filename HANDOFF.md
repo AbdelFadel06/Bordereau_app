@@ -727,6 +727,20 @@ dans `CompanyListPage` — utile pour corriger un entête déjà validé dont la
 détection auto n'a pas été assez loin (ex: date déjà imprimée sur
 l'entête qui se retrouve dupliquée avec celle ajoutée par l'app).
 
+**Correction (2026-10-14)** : la première version ne permettait que de
+déplacer `content_top` (où commence le contenu de l'app) — ça ne masque
+RIEN de ce qui est déjà imprimé au-dessus, donc ça ne pouvait jamais faire
+disparaître une date placeholder, juste la rapprocher/l'éloigner de celle
+de l'app (l'utilisateur a testé et signalé un chevauchement pire qu'avant).
+Ajouté `Letterhead.header_mask_top` (migration `companies.0004`) : un
+masque blanc optionnel ENTRE le logo et `content_top`, même principe que
+le masque de pied de page existant mais en haut — troisième ligne
+draggable dans l'éditeur, activable via une case à cocher séparée.
+`adjust_letterhead` et `pdf_render._letterhead_context` (nouveau champ
+`header_mask_height` précalculé en Python) mis à jour en conséquence.
+Vérifié avec un rendu PDF réel : la bande entre header_mask_top et
+content_top est bien recouverte de blanc.
+
 **Bug trouvé en implémentant** : en dev, `/media` n'était pas proxifié par
 Vite (seul `/api` l'était) — sans ça, l'image de fond du papier entête
 (et la miniature du cachet) ne se chargeait pas dans le navigateur.

@@ -33,6 +33,16 @@ def _letterhead_context(letterhead):
         # le bord d'un élément imprimé (ex: bordure d'un encadré), qui reste
         # visible en un fin liseré sinon.
         "footer_mask_top": f"{max(letterhead.content_bottom - 2.0, 0):.1f}" if letterhead.content_bottom is not None else None,
+        # Masque blanc optionnel entre le logo et content_top (ex: une date
+        # déjà imprimée sur l'entête) — hauteur précalculée ici (pas en
+        # template Django) pour éviter l'arithmétique en pourcentage côté
+        # CSS et la même virgule localisée que ci-dessus.
+        "header_mask_top": f"{letterhead.header_mask_top:.1f}" if letterhead.header_mask_top is not None else None,
+        "header_mask_height": (
+            f"{max(letterhead.content_top - letterhead.header_mask_top, 0):.1f}"
+            if letterhead.header_mask_top is not None
+            else None
+        ),
         "header_color": letterhead.header_color,
         "header_text_color": readable_text_color(letterhead.header_color),
     }

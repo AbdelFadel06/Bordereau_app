@@ -32,6 +32,19 @@
     background: white;
   }
   {% endif %}
+  {% if header_mask_top %}
+  /* Masque un élément déjà imprimé entre le logo et le contenu (ex: une
+     date placeholder) — content_top seul ne fait que déplacer où commence
+     le contenu de l'app, il ne cache rien de ce qu'il y a au-dessus. */
+  .header-mask {
+    position: absolute;
+    top: {{ header_mask_top }}%;
+    left: -5mm;
+    right: -5mm;
+    height: {{ header_mask_height }}%;
+    background: white;
+  }
+  {% endif %}
   .meta { text-align: right; font-style: italic; margin-bottom: 10mm; }
   table { width: 100%; border-collapse: collapse; }
   th, td { border: 1px solid #333; padding: 4px 8px; text-align: left; font-size: 10pt; }
@@ -90,6 +103,9 @@
   </div>
   {% if footer_mask_top %}
   <div class="footer-mask"></div>
+  {% endif %}
+  {% if header_mask_top %}
+  <div class="header-mask"></div>
   {% endif %}
 </body>
 </html>
